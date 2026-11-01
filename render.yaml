@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: space-cleanup-squad
+    name: forest-friends
     runtime: node
     plan: free
     buildCommand: npm install --omit=dev
