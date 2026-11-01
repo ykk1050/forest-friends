@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>숲속 친구들 대작전 · 선생님</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/teacher.css" />
+</head>
+<body class="teacher">
+  <header>
+    <div>
+      <div class="t-title">🐻 숲속 친구들 대작전 <small>선생님 화면</small></div>
+      <div class="t-join">학생 접속 주소: <b id="url"></b></div>
+      <div class="t-class">학급 이름 <input id="class-name" maxlength="12" placeholder="예: 5-2" /> <small>학급마다 별·기록이 이 컴퓨터에 따로 저장돼요</small></div>
+    </div>
+    <div class="code-box">방 코드<div id="code">····</div></div>
+  </header>
+
+  <div class="t-actions">
+    <button id="start-all" class="big">▶ 모든 모둠 시작</button>
+    <button id="lobby-all" class="t-btn">🏠 모두 대기실로</button>
+    <button id="unlock-all" class="t-btn">🔓 모든 단계 열기</button>
+    <button id="new-room" class="t-btn">새 방 만들기</button>
+    <span id="t-stat"></span>
+  </div>
+
+  <main id="teams" class="t-grid"></main>
+  <section id="rank" class="t-rank hidden"></section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/teacher.js"></script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#8fd16a" />
+  <title>숲속 친구들 대작전</title>
+  <!-- 'Jua' 글꼴: SIL 오픈 폰트 라이선스(상업적 무료). 인터넷이 없으면 맑은 고딕으로 대신 보임 -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
+</head>
+<body>
+  <!-- 1. 참가 화면 -->
+  <section id="join" class="screen card-screen">
+    <div class="card">
+      <div class="logo">🐻🐰🦊🐼🐧</div>
+      <h1>숲속 친구들 대작전</h1>
+      <label>방 코드 <small>(선생님 화면의 숫자 4개)</small>
+        <input id="code" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000" />
+      </label>
+      <label>내 이름 <small>(8글자까지)</small>
+        <input id="name" maxlength="8" autocomplete="off" placeholder="이름" />
+      </label>
+      <div class="label">우리 모둠</div>
+      <div id="teams" class="teams"></div>
+      <button id="join-btn" class="big">참가하기</button>
+      <p id="join-err" class="err"></p>
+    </div>
+  </section>
+
+  <!-- 2. 모둠 대기실: 동물 고르기 + 30단계 지도 -->
+  <section id="wait" class="screen card-screen hidden">
+    <div class="card wide">
+      <h1 id="wait-title">1모둠</h1>
+      <div id="animal-pick" class="animal-pick"></div>
+      <div id="wait-roster" class="roster"></div>
+      <div id="map" class="map"></div>
+      <p class="wait-msg" id="wait-msg">선생님이 시작하면 출발해요! 🚀</p>
+      <button id="leave-btn" class="small">모둠 바꾸기</button>
+    </div>
+  </section>
+
+  <!-- 3. 게임 화면 -->
+  <section id="game" class="screen hidden">
+    <div id="view"></div>
+    <div id="hud">
+      <div id="hud-goal"></div>
+      <div id="hud-top">
+        <span id="hud-level"></span>
+        <span id="hud-time"></span>
+        <span id="hud-berry">🍓 0/3</span>
+        <span id="hud-miss">💥 0</span>
+      </div>
+      <div id="hud-roster"></div>
+      <div id="hud-msg"></div>
+    </div>
+    <div id="banner" class="hidden"></div>
+    <div id="code-panel" class="hidden"><div id="code-seq"></div></div>
+    <canvas id="minimap"></canvas>
+    <div id="stick-zone" class="zone"><div id="stick-base" class="stick-base"><div id="stick-knob" class="stick-knob"></div></div><span class="zone-hint">🕹️ 이동</span></div>
+    <div id="look-zone" class="zone"><div id="look-base" class="stick-base look"><div id="look-knob" class="stick-knob"></div></div><span class="zone-hint right">👀 화면 돌리기</span></div>
+    <button id="grab-btn">✋<br />잡기</button>
+    <div id="tools">
+      <button id="cam-btn" title="카메라 바꾸기 (C)">🎥</button>
+      <button id="quality-btn" title="화질">✨</button>
+      <button id="fs-btn" title="전체 화면">⛶</button>
+    </div>
+
+    <!-- 단계 성공 결과 -->
+    <div id="result" class="hidden">
+      <div class="result-card">
+        <div id="res-title" class="res-title"></div>
+        <div id="res-stars" class="res-stars"></div>
+        <div id="res-new" class="res-new hidden">🏅 새 기록!</div>
+        <ul class="res-list">
+          <li><span>⏱ 걸린 시간</span><b id="res-time"></b></li>
+          <li><span>🎯 목표 시간</span><b id="res-par"></b></li>
+          <li><span>🍓 딸기</span><b id="res-berry"></b></li>
+          <li><span>💥 실수</span><b id="res-miss"></b></li>
+        </ul>
+        <div class="res-hint">⭐ 성공 · ⭐ 딸기 3개 모두 · ⭐ 목표 시간 안에</div>
+        <div class="res-btns">
+          <button id="res-retry" class="mid">🔁 다시 도전</button>
+          <button id="res-next" class="mid go">▶ 다음 단계</button>
+        </div>
+      </div>
+    </div>
+    <div id="offline" class="hidden">연결이 끊겼어요… 다시 연결하는 중 📡</div>
+  </section>
+
+  <!-- 4. 30단계 모두 끝 -->
+  <section id="done" class="screen card-screen hidden">
+    <div class="card">
+      <div class="logo">🏆</div>
+      <h1>모든 단계 완료!</h1>
+      <p id="done-stars" class="done-time"></p>
+      <p>별 3개를 못 받은 단계에 다시 도전해 볼까요? 💖</p>
+    </div>
+  </section>
+
+  <div id="rotate">📱↻<br />기기를 <b>가로</b>로 돌려 주세요</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/student.js"></script>
+</body>
+</html>

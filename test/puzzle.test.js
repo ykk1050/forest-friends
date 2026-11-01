@@ -1,0 +1,98 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import TeamGame from '../server/TeamGame.js';
+import { levelsOf } from '../shared/missions.js';
+
+const base = 30; // 수수께끼 숲 6-1 = 31번째
+function makeGame(n, k) {
+  const events = [];
+  const g = new TeamGame(1, (ev, data) => events.push([ev, data]));
+  for (let i = 0; i < n; i++) g.addPlayer(`p${i}`, `학생${i}`);
+  g.start(base + k);
+  return { g, events, ps: [...g.players.values()] };
+}
+const run = (g, sec) => { for (let i = 0; i < sec * 20; i++) g.tick(0.05); };
+const fx = (events, type) => events.filter(([e, d]) => e === 'fx' && d.type === type);
+
+test('수수께끼 숲은 모둠·짝 모두 6단계, 2명 이상', () => {
+  for (const mode of ['team', 'duo']) {
+    const lv = levelsOf(mode).slice(30);
+    assert.equal(lv.length, 6);
+    assert.ok(lv.every((l) => l.world === 5 && l.minPlayers === 2));
+  }
+});
+
+test('안개 늪: 징검다리는 안전, 다른 칸은 빠져서 처음 자리로', () => {
+  const { g, ps } = makeGame(3, 0);
+  const [c, r] = g.level.swamps[0].tiles[3];
+  const safe = { x: c * 80 + 40, y: r * 80 + 40 }, bad = g.level.swampCells[0];
+  Object.assign(ps[0], safe);                  // 징검다리
+  Object.assign(ps[1], { x: bad.x, y: bad.y }); // 늪
+  run(g, 0.05);
+  assert.equal(g.mistakes, 1);
+  assert.ok(Math.abs(ps[0].x - safe.x) < 10, '징검다리 위는 그대로');
+});
+
+test('그림 암호: 표지판에 아무도 없으면 발판이 안 눌림', () => {
+  const { g, ps, events } = makeGame(3, 1);
+  const spec = g.level.gates[0].plates, cd = g.codes[0];
+  const pad = spec.pads.find((p) => p.sym === cd.seq[0]);
+  Object.assign(ps[1], { x: pad.x, y: pad.y });
+  run(g, 0.1);
+  assert.equal(cd.got, 0);
+  assert.equal(fx(events, 'codeNoReader').length, 1);
+});
+
+test('그림 암호: 표지판 친구 + 순서대로 밟으면 문이 열림, 틀리면 처음부터', () => {
+  const { g, ps, events } = makeGame(3, 1);
+  const spec = g.level.gates[0].plates, cd = g.codes[0];
+  Object.assign(ps[0], { x: spec.sign.x, y: spec.sign.y });
+  const padOf = (sym) => spec.pads.find((p) => p.sym === sym);
+  const away = { x: 600, y: 360 };
+  // 틀린 그림 먼저
+  const wrong = spec.pads.find((p) => p.sym !== cd.seq[0]);
+  Object.assign(ps[1], wrong); run(g, 0.1); Object.assign(ps[1], away); run(g, 0.1);
+  assert.equal(fx(events, 'codeWrong').length, 1);
+  for (const sym of cd.seq) { Object.assign(ps[1], padOf(sym)); run(g, 0.1); Object.assign(ps[1], away); run(g, 0.1); }
+  assert.equal(g.gateOpen[0], true);
+});
+
+test('그림 암호는 도전할 때마다 바뀜', () => {
+  const { g } = makeGame(3, 4);
+  const seen = new Set();
+  for (let i = 0; i < 8; i++) { g.loadLevel(base + 4); seen.add(g.codes[0].seq.join()); }
+  assert.ok(seen.size > 1);
+});
+
+test('레버: 서 있는 동안만 다리, 다리 위에 누가 있으면 안 사라짐', () => {
+  const { g, ps } = makeGame(3, 2);
+  const lv = g.level.levers[0], br = g.level.bridges[0];
+  run(g, 0.05);
+  assert.equal(g.bridgeOn, false);
+  Object.assign(ps[0], { x: lv.x, y: lv.y });
+  run(g, 0.05);
+  assert.equal(g.bridgeOn, true);
+  Object.assign(ps[1], { x: br.x, y: br.y });   // 다리 위
+  Object.assign(ps[0], { x: 150, y: 600 });     // 레버에서 내려옴
+  run(g, 0.1);
+  assert.equal(g.bridgeOn, true, '다리 위 친구가 빠지지 않게');
+  assert.equal(g.mistakes, 0);
+  Object.assign(ps[1], { x: 900, y: 200 });
+  run(g, 0.1);
+  assert.equal(g.bridgeOn, false);
+});
+
+test('센 물살: 바구니가 떠내려가 연못에 빠지면 처음 자리로, 레버를 잡으면 멈춤', () => {
+  const { g, ps, events } = makeGame(3, 3);
+  const st = g.level.streams[0];
+  ps.forEach((p) => Object.assign(p, { x: 20, y: 20 }));
+  Object.assign(g.crate, { x: st.x, y: 360 });
+  run(g, 3);
+  assert.equal(fx(events, 'crateSplash').length, 1);
+  assert.equal(g.crate.x, g.level.crate.x);
+  const lv = g.level.levers[0];
+  Object.assign(ps[0], { x: lv.x, y: lv.y });
+  Object.assign(g.crate, { x: st.x, y: 360 });
+  run(g, 2);
+  assert.equal(Math.round(g.crate.y), 360, '레버를 잡고 있으면 물살이 멈춤');
+});

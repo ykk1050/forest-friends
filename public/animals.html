@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>동물 친구들 미리보기</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #bfe8ff; font-family: 'Malgun Gothic', sans-serif; overflow: hidden; }
+    canvas { display: block; }
+    #names { position: fixed; bottom: 16px; left: 0; right: 0; display: flex; justify-content: space-around; font-size: 20px; font-weight: 800; color: #3b2a1a; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
+</head>
+<body>
+  <div id="names"><span>🐻 곰</span><span>🐰 토끼</span><span>🦊 여우</span><span>🐼 판다</span><span>🐧 펭귄</span><span>🦉 선생님</span></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { makeAnimal } from '/js/animals.js';
+    import { COLORS } from '/shared/constants.js';
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    document.body.prepend(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xbfe8ff);
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    cam.position.set(0, 3.4, 15); cam.lookAt(0, 0.9, 0);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x88aa77, 1.5));
+    const sun = new THREE.DirectionalLight(0xfff4e0, 1.9);
+    sun.position.set(-4, 8, 6); sun.castShadow = true; scene.add(sun);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshLambertMaterial({ color: 0x8fd16a }));
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+    const kinds = ['bear', 'rabbit', 'fox', 'panda', 'penguin', 'owl'];
+    const list = kinds.map((k, i) => {
+      const a = makeAnimal(k, COLORS[i]);
+      a.root.position.x = (i - 2.5) * 1.35;
+      a.root.rotation.y = -Math.PI / 2 + 0.5;   // 카메라 쪽으로
+      scene.add(a.root);
+      return a;
+    });
+    const resize = () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); };
+    addEventListener('resize', resize); resize();
+    let last = performance.now();
+    renderer.setAnimationLoop((now) => {
+      const dt = (now - last) / 1000; last = now;
+      const t = now / 1000;
+      list.forEach((a, i) => a.animate(dt, (Math.sin(t * 0.8 + i) + 1) / 2, i % 3 === 0 && Math.sin(t) > 0.5, t));
+      renderer.render(scene, cam);
+    });
+  </script>
+</body>
+</html>
