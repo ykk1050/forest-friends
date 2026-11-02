@@ -125,6 +125,20 @@ test('선생님이 함께하면 꽉 찬 모둠에도 들어가고, 부엉이가 
   assert.equal(g.plates.length, 6, '발판도 6개로');
 });
 
+test('무거운 바구니: 끊긴 친구는 빼고 연결된 친구만 다 밀면 움직임', () => {
+  const { g, ps } = makeGame(4, 11);
+  const c = g.crate;
+  ps.forEach((p, i) => Object.assign(p, { x: c.x - 60, y: c.y - 20 + i * 15 }));
+  g.setConnected('p3', false);
+  assert.equal(g.need(), 3);
+  ['p0', 'p1', 'p2'].forEach((id) => g.setInput(id, { x: 1, y: 0, a: true }));
+  const x0 = c.x;
+  run(g, 0.5);
+  assert.ok(c.x > x0 + 30);
+  g.setConnected('p3', true);
+  assert.equal(g.need(), 4);
+});
+
 test('도중에 한 명이 나가면 발판 수가 줄어듦', () => {
   const { g } = makeGame(4, 2);
   g.removePlayer('p3');

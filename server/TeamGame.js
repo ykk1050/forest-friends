@@ -209,7 +209,11 @@ export default class TeamGame {
     });
   }
 
-  need() { return crateNeed(this.level.crate.weight, Math.max(1, this.players.size)); }
+  // 바구니를 밀 인원은 지금 연결된 친구만 셈 (잠깐 끊긴 친구 때문에 못 미는 일이 없도록)
+  need() {
+    const online = [...this.players.values()].filter((p) => p.connected).length;
+    return crateNeed(this.level.crate.weight, Math.max(1, online));
+  }
 
   levelInfo() {
     const L = this.level;
@@ -530,7 +534,7 @@ export default class TeamGame {
       p: [...this.players.values()].map((p) => [
         p.slot, r(p.x), r(p.y), r(p.fx * 100), r(p.fy * 100), p.grab ? 1 : 0, p.connected ? 1 : 0, now < p.safeUntil ? 1 : 0
       ]),
-      c: [r(this.crate.x), r(this.crate.y), this.crate.grabbers, this.crate.moving ? 1 : 0],
+      c: [r(this.crate.x), r(this.crate.y), this.crate.grabbers, this.crate.moving ? 1 : 0, this.need()],
       g: this.gateOpen.map((o) => (o ? 1 : 0)),
       pl: this.plates.map((p) => (p.on ? 1 : 0)),
       mv: this.level.movers.map((m) => { const q = hazardPos(m, now); return [r(q.x), r(q.y)]; }),

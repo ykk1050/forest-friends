@@ -498,7 +498,7 @@ export default class World3D {
       if (!this.crate.userData.target) this.crate.position.copy(t);
       this.crate.userData.target = t;
       this.crate.userData.moving = !!s.c[3];
-      const ok = s.c[2] >= this.need;
+      const ok = s.c[2] >= (s.c[4] ?? this.need);
       // 몇 명이 필요한지는 알려 주지 않고, 지금 잡은 수만 (충분하면 초록)
       this.crateLabel.userData.set(s.c[2] ? `✋ ${s.c[2]}` : '', ok ? '#76ff03' : '#fff');
     }
