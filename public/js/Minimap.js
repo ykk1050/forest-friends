@@ -75,8 +75,8 @@ export default class Minimap {
     for (const [slot, x, y, fx, fy] of s.p) {
       const pl = players.find((r) => r.slot === slot);
       const r = slot === mySlot ? 34 : 26;
-      if (slot === mySlot) {
-        // 화면(카메라)이 보는 쪽 부채꼴
+      if (slot === mySlot && yaw != null) {
+        // 화면(카메라)이 보는 쪽 부채꼴 (화면 돌리기를 켰을 때만. 끄면 늘 북쪽이라 필요 없음)
         g.beginPath(); g.moveTo(x, y);
         g.arc(x, y, 190, yaw - 0.55, yaw + 0.55); g.closePath();
         g.fillStyle = 'rgba(255,255,255,.35)'; g.fill();

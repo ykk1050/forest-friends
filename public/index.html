@@ -66,6 +66,7 @@
     <div id="tools">
       <button id="cam-btn" title="카메라 바꾸기 (C)">🎥</button>
       <button id="quality-btn" title="화질">✨</button>
+      <button id="settings-btn" title="설정">⚙️</button>
       <button id="fs-btn" title="전체 화면">⛶</button>
     </div>
 
@@ -86,6 +87,16 @@
           <button id="res-retry" class="mid">🔁 다시 도전</button>
           <button id="res-next" class="mid go">▶ 다음 단계</button>
         </div>
+      </div>
+    </div>
+    <div id="settings" class="hidden">
+      <div class="settings-card">
+        <h3>⚙️ 설정</h3>
+        <label class="switch-row">
+          <span>👀 화면 돌리기<small>켜면 오른쪽 조이스틱(PC는 Q·E)으로 화면을 돌릴 수 있어요. 끄면 늘 화면 위가 지도 위(북쪽)예요.</small></span>
+          <input type="checkbox" id="rotate-toggle" />
+        </label>
+        <button id="settings-close" class="mid go">닫기</button>
       </div>
     </div>
     <div id="offline" class="hidden">연결이 끊겼어요… 다시 연결하는 중 📡</div>

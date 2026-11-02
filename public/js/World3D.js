@@ -13,6 +13,7 @@ const S = 1 / 40;
 const wx = (x) => (x - 640) * S;
 const wz = (y) => (y - 360) * S;
 const WALL_H = 1.0;
+const NORTH = -Math.PI / 2;   // 화면 위 = 지도 위(북쪽)
 
 // 글자를 그린 캔버스를 스프라이트로 (한글·이모지 모두 OK)
 function makeLabel(text, { color = '#fff', size = 48, height = 0.5 } = {}) {
@@ -84,8 +85,10 @@ export default class World3D {
     this.theme = -1;
     // 카메라: 'follow' = 내 캐릭터 뒤에서 내려다보기, 'overview' = 맵 전체
     this.camMode = 'overview';
-    this.yaw = 0;          // 바라보는 방향 (바닥 기준, 0 = 오른쪽)
+    this.yaw = NORTH;      // 바라보는 방향 (바닥 기준, 0 = 오른쪽, 기본은 늘 북쪽)
     this.pitch = 1.0;      // 내려다보는 각도
+    this.canRotate = false;   // 설정에서 '화면 돌리기'를 켰을 때만 돌릴 수 있음
+    this.lead = new THREE.Vector3();   // 북쪽 고정일 때 가는 쪽을 조금 더 보여 주려고 카메라를 앞당기는 만큼
     this.camLook = new THREE.Vector3();
     this.camReady = false;
 
@@ -120,9 +123,15 @@ export default class World3D {
   // ---------- 카메라 ----------
   setCamMode(mode) { this.camMode = mode; this.camReady = false; }
 
-  // 오른쪽 조이스틱: 좌우 = 돌기, 위아래 = 내려다보는 각도
+  // 화면 돌리기 켜기/끄기. 끄면 다시 북쪽 고정
+  setRotate(on) {
+    this.canRotate = on;
+    if (!on) { this.yaw = NORTH; this.pitch = 1.1; }
+  }
+
+  // 오른쪽 조이스틱: 좌우 = 돌기, 위아래 = 내려다보는 각도 (화면 돌리기를 켰을 때만)
   look(lx, ly, dt) {
-    if (this.camMode !== 'follow') return;
+    if (this.camMode !== 'follow' || !this.canRotate) return;
     this.yaw += lx * 2.4 * dt;
     this.pitch = THREE.MathUtils.clamp(this.pitch + ly * 1.2 * dt, 0.45, 1.3);
   }
@@ -142,8 +151,17 @@ export default class World3D {
       const D = 13.5;
       const fx = Math.cos(this.yaw), fz = Math.sin(this.yaw);
       const back = Math.cos(this.pitch) * D, up = Math.sin(this.pitch) * D;
-      pos = new THREE.Vector3(me.x - fx * back, up, me.z - fz * back);
-      look = new THREE.Vector3(me.x + fx * 1.8, 0.6, me.z + fz * 1.8);
+      // 북쪽 고정: 움직이는 쪽으로 카메라를 살짝 앞당겨 아래(남쪽)로 갈 때도 앞이 보이게
+      const at = me.clone();
+      if (!this.canRotate && this.lastMe && dt > 0) {
+        const v = at.clone().sub(this.lastMe).divideScalar(dt);
+        const want = v.lengthSq() > 0.25 ? v.setY(0).normalize().multiplyScalar(2.2) : new THREE.Vector3();
+        this.lead.lerp(want, 1 - Math.exp(-dt * 2.5));
+      } else if (this.canRotate) this.lead.set(0, 0, 0);
+      this.lastMe = me.clone();
+      at.add(this.lead);
+      pos = new THREE.Vector3(at.x - fx * back, up, at.z - fz * back);
+      look = new THREE.Vector3(at.x + fx * 1.8, 0.6, at.z + fz * 1.8);
     } else {
       pos = this.overviewPos; look = this.overviewLook;
     }
@@ -210,8 +228,9 @@ export default class World3D {
     const key = `${info.mode}:${info.index}`;
     if (this.levelKey !== key) {
       this.levelKey = key;
-      this.yaw = Math.atan2(info.home.y - info.start.y, info.home.x - info.start.x);
-      this.pitch = 1.0;
+      // 화면 돌리기를 켰으면 집 쪽을 보며 시작, 아니면 북쪽 그대로
+      this.yaw = this.canRotate ? Math.atan2(info.home.y - info.start.y, info.home.x - info.start.x) : NORTH;
+      this.pitch = this.canRotate ? 1.0 : 1.1;
       this.camReady = false;
     }
     this.info = info;

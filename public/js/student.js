@@ -40,6 +40,14 @@ function setCam(mode) {
   try { if (!me?.watch) localStorage.setItem('ffm-cam', m); } catch { /* 저장 불가 */ }
 }
 const toggleCam = () => setCam(world?.camMode === 'follow' ? 'overview' : 'follow');
+// 화면 돌리기: 기본은 꺼짐(북쪽 고정). 설정에서 켠 기기만 돌릴 수 있음
+const savedRotate = () => { try { return localStorage.getItem('ffm-rotate') === '1'; } catch { return false; } };
+function setRotate(on) {
+  world?.setRotate(on);
+  document.body.classList.toggle('north', !on);
+  $('rotate-toggle').checked = on;
+  try { localStorage.setItem('ffm-rotate', on ? '1' : '0'); } catch { /* 저장 불가 */ }
+}
 const fmt = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 function show(id) {
@@ -176,6 +184,7 @@ function ensureWorld() {
     grabBtn: $('grab-btn'), onCamToggle: toggleCam
   });
   setCam(savedCam() || 'follow');
+  setRotate(savedRotate());
   let last = performance.now();
   const loop = (now) => {
     const dt = Math.min(0.1, (now - last) / 1000);
@@ -250,7 +259,7 @@ socket.on('state', (s) => {
   if (!world || !level) return;
   lastSnap = s;
   world.applyState(s);
-  if (world.camMode === 'follow') minimap.draw(s, me?.slot, world.yaw, roster, world.isLookout);
+  if (world.camMode === 'follow') minimap.draw(s, me?.slot, world.canRotate ? world.yaw : null, roster, world.isLookout);
   showPuzzlePanels(s);
   const over = s.t > level.par;
   $('hud-time').textContent = `⏱ ${fmt(s.t)} / 🎯${fmt(level.par)}`;
@@ -370,6 +379,11 @@ $('quality-btn').onclick = () => {
   location.reload();
 };
 $('quality-btn').textContent = lowQuality() ? '🐢' : '✨';
+$('settings-btn').onclick = () => $('settings').classList.remove('hidden');
+$('settings-close').onclick = () => $('settings').classList.add('hidden');
+$('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') $('settings').classList.add('hidden'); });
+$('rotate-toggle').addEventListener('change', (e) => setRotate(e.target.checked));
+document.body.classList.toggle('north', !savedRotate());
 
 const root = document.documentElement;
 const requestFs = root.requestFullscreen || root.webkitRequestFullscreen;
