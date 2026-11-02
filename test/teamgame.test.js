@@ -33,6 +33,24 @@ test('필요 인원보다 적게 밀면 안 움직이고, 충분하면 움직임
   assert.ok(c.x > x0 + 30);
 });
 
+test('바구니를 잡고 밀면 잡은 면 방향으로만 밀리고, 동물도 그쪽만 바라봄', () => {
+  const { g, ps } = makeGame(1, 0);
+  const c = g.crate, p = ps[0];
+  Object.assign(p, { x: c.x - 60, y: c.y });
+  const y0 = c.y, py0 = p.y;
+  g.setInput('p0', { x: 0.8, y: 0.6, a: true });   // 비스듬히 밀어도
+  run(g, 0.5);
+  assert.equal(Math.round(c.y), Math.round(y0));    // 바구니는 옆으로 안 미끄러짐
+  assert.ok(Math.abs(p.y - py0) < 1);
+  assert.deepEqual([p.fx, p.fy], [1, 0]);
+  g.setInput('p0', { x: 0, y: 1, a: true });       // 잡은 채로 옆으로 꺾어도 안 돌아감
+  run(g, 0.3);
+  assert.deepEqual([p.fx, p.fy], [1, 0]);
+  g.setInput('p0', { x: 0, y: 1, a: false });      // 놓으면 다시 자유롭게
+  run(g, 0.1);
+  assert.deepEqual([p.fx, p.fy], [0, 1]);
+});
+
 test('모두 발판을 밟으면 문이 열림', () => {
   const { g, ps, events } = makeGame(3, 2);
   g.plates.forEach((pl, i) => Object.assign(ps[i], { x: pl.x, y: pl.y }));

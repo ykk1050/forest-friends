@@ -275,31 +275,44 @@ export default class TeamGame {
     this.bridgeOn = this.leverOn || (this.bridgeOn && onBridge);
 
     // 1) 조작 → 속도 (얼음: 잘 안 멈춤 / 진흙: 느림)
+    const c = this.crate, half = RULES.crateHalf;
+    const crateRect = { x: c.x, y: c.y, w: half * 2, h: half * 2 };
     for (const p of players) {
+      p.grab = p.inp.a;
+      // 바구니를 잡는 순간 잡은 면 쪽으로 방향을 고정 → 잡고 있는 동안은 그 방향으로 밀고 당기기만
+      if (p.grab && distToRect(p.x, p.y, crateRect) < RULES.playerR + RULES.grabDist) {
+        if (!p.lock) {
+          const dx = c.x - p.x, dy = c.y - p.y;
+          p.lock = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx) || 1, y: 0 } : { x: 0, y: Math.sign(dy) || 1 };
+        }
+        const along = p.inp.x * p.lock.x + p.inp.y * p.lock.y;
+        p.move = Math.abs(along) < 0.2 ? { x: 0, y: 0 } : { x: p.lock.x * along, y: p.lock.y * along };
+      } else {
+        p.lock = null;
+        p.move = p.inp;
+      }
       const onIce = L.ice.some((r) => inRect(p.x, p.y, r));
       const inMud = L.mud.some((r) => inRect(p.x, p.y, r));
       const top = RULES.speed * (inMud ? RULES.mudSpeed : 1);
       const k = Math.min(1, (onIce ? RULES.iceSteer : RULES.steer) * dt);
-      p.vx += (p.inp.x * top - p.vx) * k;
-      p.vy += (p.inp.y * top - p.vy) * k;
-      if (p.inp.x || p.inp.y) { p.fx = p.inp.x; p.fy = p.inp.y; }
-      p.grab = p.inp.a;
+      p.vx += (p.move.x * top - p.vx) * k;
+      p.vy += (p.move.y * top - p.vy) * k;
+      if (p.lock) { p.fx = p.lock.x; p.fy = p.lock.y; }
+      else if (p.inp.x || p.inp.y) { p.fx = p.inp.x; p.fy = p.inp.y; }
     }
 
     // 2) 바구니: 필요한 인원 이상이 같은 방향(±45°)으로 잡아 밀어야 움직임
-    const c = this.crate, half = RULES.crateHalf;
-    const crateRect = { x: c.x, y: c.y, w: half * 2, h: half * 2 };
-    const grabbers = players.filter((p) => p.grab && distToRect(p.x, p.y, crateRect) < RULES.playerR + RULES.grabDist);
+    const grabbers = players.filter((p) => p.lock);
     c.grabbers = grabbers.length;
     const need = this.need();
     let tx = 0, ty = 0;
-    grabbers.forEach((p) => { tx += p.inp.x; ty += p.inp.y; });
+    grabbers.forEach((p) => { tx += p.move.x; ty += p.move.y; });
     c.moving = false;
     if (grabbers.length >= need && Math.hypot(tx, ty) > 0.1) {
       const dir = Math.atan2(ty, tx);
       const aligned = grabbers.filter((p) => {
-        if (Math.hypot(p.inp.x, p.inp.y) < 0.1) return false;
-        let d = Math.atan2(p.inp.y, p.inp.x) - dir;
+        if (Math.hypot(p.move.x, p.move.y) < 0.1) return false;
+        let d = Math.atan2(p.move.y, p.move.x) - dir;
         d = Math.atan2(Math.sin(d), Math.cos(d));
         return Math.abs(d) <= Math.PI / 4;
       });

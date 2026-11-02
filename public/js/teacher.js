@@ -70,8 +70,10 @@ socket.on('room', ({ teams }) => {
   const people = teams.reduce((n, t) => n + t.roster.filter((r) => !r.isTeacher).length, 0);
   $('t-stat').textContent = `접속 학생 ${people}명 · 모둠 ${teams.filter((t) => t.roster.length).length}개`;
 
-  $('teams').replaceChildren(...teams.map((t) => {
-    const prev = document.querySelector(`.t-team[data-team="${t.team}"]`);
+  // 카드를 통째로 갈아 끼우면 열려 있던 드롭다운이 닫혀 버리므로, 고르는 중인 카드는 그 자리에 그대로 둠
+  const grid = $('teams');
+  const cards = teams.map((t) => {
+    const prev = grid.querySelector(`.t-team[data-team="${t.team}"]`);
     if (prev && openSelect.has(t.team)) return prev;
     const el = document.createElement('div');
     const n = t.roster.length;
@@ -116,7 +118,14 @@ socket.on('room', ({ teams }) => {
     sel.addEventListener('change', () => { socket.emit('teacher:setLevel', { team: t.team, level: +sel.value }); openSelect.delete(t.team); sel.blur(); });
     el.querySelector('.start-one')?.addEventListener('click', () => socket.emit('teacher:startTeam', { team: t.team, level: +sel.value }));
     return el;
-  }));
+  });
+  cards.forEach((el, i) => {
+    const prev = grid.querySelector(`.t-team[data-team="${el.dataset.team}"]`);
+    if (prev === el) { if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null); }
+    else if (prev) prev.replaceWith(el);
+    else grid.insertBefore(el, grid.children[i] || null);
+  });
+  [...grid.children].filter((el) => !cards.includes(el)).forEach((el) => el.remove());
 
   const total = (t) => t.starsTeam + t.starsDuo;
   const ranked = teams.filter((t) => total(t)).sort((a, b) => total(b) - total(a));
