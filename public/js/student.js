@@ -307,6 +307,7 @@ socket.on('fx', (fx) => {
       break;
     }
     case 'crateSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 바구니가 처음 자리로 돌아갔어요', 3000); break;
+    case 'pumpkinSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 호박이 처음 자리로 돌아갔어요', 3000); break;
     case 'oops': {
       world.poof(fx.x, fx.y, fx.cause);
       const who = roster.find((r) => r.slot === fx.slot);

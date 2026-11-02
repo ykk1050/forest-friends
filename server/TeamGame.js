@@ -176,7 +176,7 @@ export default class TeamGame {
     this.gateOpen = L.gates.map(() => false);
     this.berries = L.berries.map(() => false);
     this.crate = { x: L.crate.x, y: L.crate.y, vx: 0, vy: 0, moving: false, grabbers: 0 };
-    this.pumpkins = L.pumpkins.map((p) => ({ ...p }));
+    this.pumpkins = L.pumpkins.map((p) => ({ ...p, ox: p.x, oy: p.y }));
     this.leverOn = false;
     this.bridgeOn = false;
     this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates) : null));
@@ -260,7 +260,7 @@ export default class TeamGame {
     return {
       mode: this.mode, index: this.levelIndex, code: levelCode(this.levelIndex), total: this.levels.length,
       name: L.name, world: L.world, tip: L.tip, par: parOf(this.mode, this.levelIndex, Math.max(1, this.players.size)),
-      field: FIELD, start: L.start, home: L.home, walls: L.walls,
+      field: FIELD, start: L.start, home: L.home, house: L.house, walls: L.walls,
       gates: L.gates.map((g, i) => ({
         door: g.door, open: this.gateOpen[i], type: g.plates.type,
         code: g.plates.type === 'code' ? { sign: g.plates.sign, pads: g.plates.pads, len: this.codes[i].seq.length, booth: g.plates.booth } : undefined
@@ -305,10 +305,10 @@ export default class TeamGame {
   activeStreams() { return this.level.streams.filter((s) => !(s.lever && this.leverOn)); }
 
   closedDoors() { return this.level.gates.filter((_, i) => !this.gateOpen[i]).map((g) => g.door); }
-  // 바구니를 막는 것 (호박 포함)
+  // 바구니를 막는 것 (호박 포함). 물·늪 구멍은 막지 않음 → 밀다가 빠지면 처음 자리로
   crateSolids(skipPumpkin) {
     const L = this.level;
-    return [...L.walls, ...this.water(), ...L.thorns.map(thornRect), ...this.closedDoors(),
+    return [...L.walls, L.house, ...L.thorns.map(thornRect), ...this.closedDoors(),
       ...this.pumpkins.filter((p) => p !== skipPumpkin).map(pumpkinRect)];
   }
 
@@ -394,7 +394,7 @@ export default class TeamGame {
     }
 
     // 4) 동물 이동 + 충돌 + 물살
-    const solids = [...L.walls, ...this.closedDoors()];
+    const solids = [...L.walls, L.house, ...this.closedDoors()];
     const crateNow = { x: c.x, y: c.y, w: half * 2, h: half * 2 };
     for (const p of players) {
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -513,7 +513,7 @@ export default class TeamGame {
     // 센 물살: 바구니도 떠내려감. 물(연못)에 빠지면 바구니가 처음 자리로
     for (const s of this.activeStreams()) {
       if (!s.strong || !inRect(c.x, c.y, s)) continue;
-      const hard = [...this.level.walls, ...this.closedDoors()];
+      const hard = [...this.level.walls, this.level.house, ...this.closedDoors()];
       const nx = clamp(c.x + s.vx * dt, half, FIELD.w - half), ny = clamp(c.y + s.vy * dt, half, FIELD.h - half);
       if (!hard.some((w) => rectsOverlap({ x: nx, y: ny, w: half * 2, h: half * 2 }, w))) { c.x = nx; c.y = ny; }
     }
@@ -537,12 +537,19 @@ export default class TeamGame {
   // 호박을 (dx,dy)만큼 밀기: 울타리·바구니·맵 끝에 막히면 그만큼만
   movePumpkin(pk, dx, dy) {
     const L = this.level;
-    const solids = [...L.walls, ...this.closedDoors(), { x: this.crate.x, y: this.crate.y, w: RULES.crateHalf * 2, h: RULES.crateHalf * 2 },
+    const solids = [...L.walls, L.house, ...this.closedDoors(), { x: this.crate.x, y: this.crate.y, w: RULES.crateHalf * 2, h: RULES.crateHalf * 2 },
       ...this.pumpkins.filter((o) => o !== pk).map(pumpkinRect)];
     const free = (x, y) => x - pk.r >= 0 && x + pk.r <= FIELD.w && y - pk.r >= 0 && y + pk.r <= FIELD.h &&
       !solids.some((s) => circleRectPush(x, y, pk.r * 0.8, s));
     if (free(pk.x + dx, pk.y)) pk.x += dx;
     if (free(pk.x, pk.y + dy)) pk.y += dy;
+    // 물·늪 구멍에 빠지면 처음 자리로
+    if (this.water().some((w) => inRect(pk.x, pk.y, w))) {
+      const at = { x: Math.round(pk.x), y: Math.round(pk.y) };
+      pk.x = pk.ox; pk.y = pk.oy;
+      this.mistakes++;
+      this.emit('fx', { type: 'pumpkinSplash', ...at });
+    }
   }
 
   finishLevel() {

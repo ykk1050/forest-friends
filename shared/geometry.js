@@ -1,5 +1,5 @@
 // 서버·브라우저·자동 검사가 함께 쓰는 위치 계산
-import { RULES } from './constants.js';
+import { RULES, FIELD } from './constants.js';
 
 // 모서리 좌표로 사각형 만들기 → 중심 좌표 {x, y, w, h}
 export const R = (x1, y1, x2, y2) => ({ x: (x1 + x2) / 2, y: (y1 + y2) / 2, w: x2 - x1, h: y2 - y1 });
@@ -73,6 +73,17 @@ export const distToRect = (px, py, rect) => Math.hypot(
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export const homeRect = (home) => ({ x: home.x, y: home.y, w: RULES.homeSize, h: RULES.homeSize });
+// 마당 옆에 세울 수 있는 집 건물 자리 (위·아래·오른쪽·왼쪽 순서, 맵 밖으로 나가는 자리는 뺌)
+// side: 집 문이 마당을 보도록 3D에서 돌릴 방향
+export function houseSpots(home) {
+  const o = RULES.homeSize / 2 + 40;
+  return [
+    { x: home.x, y: home.y - o, w: 92, h: 70, side: 'up' },
+    { x: home.x, y: home.y + o, w: 92, h: 70, side: 'down' },
+    { x: home.x + o, y: home.y, w: 70, h: 92, side: 'right' },
+    { x: home.x - o, y: home.y, w: 70, h: 92, side: 'left' }
+  ].filter((r) => r.x - r.w / 2 >= 0 && r.x + r.w / 2 <= FIELD.w && r.y - r.h / 2 >= 0 && r.y + r.h / 2 <= FIELD.h);
+}
 
 // 가시덤불(원)을 바구니가 못 지나가는 사각형으로
 export const thornRect = (t) => ({ x: t.x, y: t.y, w: t.r * 2, h: t.r * 2 });

@@ -1,5 +1,6 @@
 // 단계 만들기 도구 (모둠 미션·짝 미션이 함께 씀). 좌표는 가로 1280 × 세로 720 (왼쪽 위가 0,0)
 import { R } from './geometry.js';
+import { placeHouse } from './grid.js';
 
 export const T = 30; // 울타리 두께
 
@@ -69,6 +70,10 @@ export const ring = (cx, cy, r, n = 8) => Array.from({ length: n }, (_, i) => {
 
 // 기본값 채우기 + 문 묶음 펼치기
 export function L(def) {
+  const lv = build(def);
+  return { ...lv, house: placeHouse(lv) };
+}
+function build(def) {
   const walls = [...(def.walls || [])];
   const gates = [];
   (def.gateDefs || []).forEach((g) => {

@@ -1,6 +1,6 @@
 // 격자 길찾기: 단계가 풀리는지 자동 검사 + 로봇 시연에서 사용
 import { FIELD, RULES } from './constants.js';
-import { rectsOverlap, circleRectPush, thornRect } from './geometry.js';
+import { rectsOverlap, circleRectPush, thornRect, houseSpots, homeRect } from './geometry.js';
 
 export const CELL = 20;
 export const COLS = FIELD.w / CELL;
@@ -9,7 +9,7 @@ export const ROWS = FIELD.h / CELL;
 // 바구니·동물이 못 지나가는 것들 (열린 문은 제외)
 // bridges: 레버 다리가 놓였다고 볼지 (안 놓였으면 그 자리는 물)
 export function solidsFor(level, openGates, who, { bridges = true } = {}) {
-  const list = [...level.walls];
+  const list = [...level.walls, ...(level.house ? [level.house] : [])];
   level.gates.forEach((g, i) => { if (!openGates[i]) list.push(g.door); });
   if (who === 'crate' || who === 'safe') {
     // 동물은 물·늪·가시덤불에 '들어갈 수는' 있지만 들어가면 처음 자리로 → 길찾기에서는 피함
@@ -102,3 +102,21 @@ export function findPath(blocked, from, to) {
 }
 
 export const pathLength = (p) => p.reduce((s, q, i) => (i ? s + Math.hypot(q.x - p[i - 1].x, q.y - p[i - 1].y) : 0), 0);
+
+// 집 건물 자리 고르기: 위·아래·오른쪽·왼쪽 중 다른 것과 겹치지 않고 바구니가 집까지 갈 길을 막지 않는 첫 자리
+export function placeHouse(level) {
+  const L = { ...level, house: null };
+  const open = L.gates.map(() => true);
+  const busy = [...L.walls, ...L.water, ...L.streams, ...L.bridges, ...L.ice, ...L.mud,
+    ...L.gates.map((g) => g.door), ...L.thorns.map(thornRect),
+    ...(L.swamps || []).map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 })),
+    { x: L.crate.x, y: L.crate.y, w: 120, h: 120 }, { x: L.start.x, y: L.start.y, w: 100, h: 100 }];
+  const spots = houseSpots(L.home);
+  const home = homeRect(L.home);
+  const free = spots.filter((r) => !busy.some((b) => rectsOverlap(r, b)));
+  for (const r of free) {
+    const path = findPath(buildGrid(L, open, 'crate', { inflate: 20, extra: [r] }), L.crate, home);
+    if (path && Math.hypot(path.at(-1).x - home.x, path.at(-1).y - home.y) <= 40) return r;
+  }
+  return free[0] || spots[0];
+}

@@ -6,7 +6,7 @@
 import { FIELD } from './constants.js';
 import { TILE, swampCells } from './levelkit.js';
 import { analyzeLevel } from './solver.js';
-import { buildGrid, findPath, CELL, COLS, ROWS } from './grid.js';
+import { buildGrid, findPath, placeHouse, CELL, COLS, ROWS } from './grid.js';
 import { circleRectPush, homeRect } from './geometry.js';
 
 // 같은 seed면 같은 결과 (시험할 때 다시 만들 수 있게)
@@ -45,7 +45,7 @@ export function mirrorLevel(L, fx, fy) {
   const swap = (s, a, b) => s.split(a).map((part) => part.split(b).join('\u0000')).join(b).split('\u0000').join(a);
   if (fy) tip = swap(tip, '아래', '위');
   if (fx) tip = swap(tip, '왼쪽', '오른쪽');
-  return {
+  const out = {
     ...L, tip,
     start: pt(L.start), home: pt(L.home), crate: { ...L.crate, x: X(L.crate.x), y: Y(L.crate.y) },
     walls: L.walls.map(rect),
@@ -57,6 +57,7 @@ export function mirrorLevel(L, fx, fy) {
     lookouts: L.lookouts.map(pt), berries: L.berries.map(([x, y]) => [X(x), Y(y)]),
     swamps, swampCells: swamps.flatMap(swampCells)
   };
+  return { ...out, house: placeHouse(out) };
 }
 
 // ---------- 2) 망루 늪 길 새로 만들기 ----------
@@ -102,7 +103,7 @@ function randomBerries(L, rand) {
   const open = L.gates.map(() => true);
   const grid = buildGrid(L, open, 'safe', { inflate: 6 });
   const avoid = [
-    homeRect(L.home), { x: L.crate.x, y: L.crate.y, w: 140, h: 140 },
+    homeRect(L.home), L.house, { x: L.crate.x, y: L.crate.y, w: 140, h: 140 },
     ...L.gates.map((g) => ({ ...g.door, w: g.door.w + 60, h: g.door.h + 60 })),
     ...L.streams, ...L.bridges,
     ...L.gates.filter((g) => g.plates.booth).map((g) => ({ ...g.plates.booth.room, w: g.plates.booth.room.w + 120, h: g.plates.booth.room.h + 120 }))

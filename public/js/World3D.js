@@ -497,9 +497,9 @@ export default class World3D {
     yardEdge.position.set(wx(H.x), 0.05, wz(H.y));
     g.add(yardEdge);
     const house = makeHouse(info.world);
-    const backZ = wz(H.y) - hs / 2 - 1.0;
-    house.position.set(wx(H.x), 0, backZ < -8.2 ? wz(H.y) + hs / 2 + 1.0 : backZ);
-    if (backZ < -8.2) house.rotation.y = Math.PI;
+    const hr = info.house;   // 서버와 같은 자리 (부딪히는 곳 = 보이는 곳), 문은 마당 쪽
+    house.position.set(wx(hr.x), 0, wz(hr.y));
+    house.rotation.y = { up: 0, down: Math.PI, right: -Math.PI / 2, left: Math.PI / 2 }[hr.side];
     house.scale.setScalar(0.9);
     g.add(house);
     const homeLabel = makeLabel('🏠 우리 집', { color: '#ffe082', height: 0.6 });
