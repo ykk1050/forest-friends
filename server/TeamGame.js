@@ -18,7 +18,8 @@ const emptyProgress = () => ({ unlocked: 0, best: {} });
 function newCode(spec) {
   const syms = spec.pads.map((p) => p.sym);
   for (let i = syms.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [syms[i], syms[j]] = [syms[j], syms[i]]; }
-  return { seq: syms.slice(0, Math.min(spec.len, syms.length)), got: 0, reader: false, on: spec.pads.map(() => false), nagAt: 0 };
+  // owner: 오두막 얼굴 발판을 먼저 밟은 친구(pid), sealed: 그 친구가 오두막에 들어가 문이 닫힘 (그 단계 끝까지)
+  return { seq: syms.slice(0, Math.min(spec.len, syms.length)), got: 0, reader: false, on: spec.pads.map(() => false), nagAt: 0, owner: null, sealed: false };
 }
 const pumpkinRect = (p) => ({ x: p.x, y: p.y, w: p.r * 1.6, h: p.r * 1.6 });
 
@@ -175,7 +176,8 @@ export default class TeamGame {
     this.leverOn = false;
     this.bridgeOn = false;
     this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates) : null));
-    for (const p of this.players.values()) this.spawn(p);
+    // 시계가 0부터 다시 가므로 지난 단계의 무적(깜빡임) 시간도 지움 — 안 지우면 다음 단계에서 오래 깜빡임
+    for (const p of this.players.values()) { this.spawn(p); p.safeUntil = 0; }
     this.buildPlates();
     this.emit('level', this.levelInfo());
   }
@@ -188,6 +190,39 @@ export default class TeamGame {
     Object.assign(p, {
       x: clamp(s.x + Math.cos(a) * 45, 20, FIELD.w - 20), y: clamp(s.y + Math.sin(a) * 45, 20, FIELD.h - 20),
       vx: 0, vy: 0
+    });
+  }
+
+  // 오두막 문: 주인이 아직 안 들어갔으면 주인만 지나가고, 들어간 뒤에는 아무도 못 지나감
+  boothDoorsFor(p) {
+    return this.level.gates.flatMap((g, i) => {
+      const b = g.plates.booth, cd = this.codes[i];
+      return b && !(cd.owner === p.pid && !cd.sealed) ? [b.door] : [];
+    });
+  }
+
+  stepBooths(players) {
+    this.level.gates.forEach((g, i) => {
+      const b = g.plates.booth, cd = this.codes[i];
+      if (!b) return;
+      const owner = cd.owner && this.players.get(cd.owner);
+      // 주인이 끊기거나 나가면 다른 친구가 맡을 수 있게
+      if (cd.owner && (!owner || !owner.connected)) { cd.owner = null; cd.sealed = false; }
+      // 아직 안 들어간 주인이 발판에서 멀어지면 자리 내놓기
+      if (owner && !cd.sealed && Math.hypot(owner.x - b.pad.x, owner.y - b.pad.y) > RULES.plateR * 2.5 &&
+        !inRect(owner.x, owner.y, b.door) && !inRect(owner.x, owner.y, b.room)) cd.owner = null;
+      if (!cd.owner) {
+        const p = players.find((q) => q.connected && Math.hypot(q.x - b.pad.x, q.y - b.pad.y) < RULES.plateR);
+        if (p) { cd.owner = p.pid; this.emit('fx', { type: 'boothClaim', gate: i, slot: p.slot }); }
+      }
+      for (const p of players) {
+        if (!inRect(p.x, p.y, b.room)) continue;
+        if (p.pid === cd.owner) {
+          if (!cd.sealed) { cd.sealed = true; this.emit('fx', { type: 'boothSeal', gate: i, slot: p.slot }); }
+        } else {
+          this.spawn(p);   // 주인이 아닌 친구가 안에 있으면(끊겼다 돌아온 옛 주인 등) 처음 자리로
+        }
+      }
     });
   }
 
@@ -224,7 +259,7 @@ export default class TeamGame {
       field: FIELD, start: L.start, home: L.home, walls: L.walls,
       gates: L.gates.map((g, i) => ({
         door: g.door, open: this.gateOpen[i], type: g.plates.type,
-        code: g.plates.type === 'code' ? { sign: g.plates.sign, pads: g.plates.pads, len: this.codes[i].seq.length } : undefined
+        code: g.plates.type === 'code' ? { sign: g.plates.sign, pads: g.plates.pads, len: this.codes[i].seq.length, booth: g.plates.booth } : undefined
       })),
       levers: L.levers, bridges: L.bridges, swamps: L.swamps, swampCells: L.swampCells, lookouts: L.lookouts,
       plates: this.plates.map(({ gate, type, x, y, color }) => ({ gate, type, x, y, color })),
@@ -364,7 +399,7 @@ export default class TeamGame {
         if (inRect(p.x, p.y, s) && (s.strong || !grabbers.includes(p))) { p.x += s.vx * dt; p.y += s.vy * dt; }
       }
       for (let it = 0; it < 2; it++) {
-        for (const r of [...solids, crateNow]) {
+        for (const r of [...solids, crateNow, ...this.boothDoorsFor(p)]) {
           const push = circleRectPush(p.x, p.y, RULES.playerR, r);
           if (push) { p.x += push.x; p.y += push.y; }
         }
@@ -376,6 +411,8 @@ export default class TeamGame {
         p.y = clamp(p.y, RULES.playerR, FIELD.h - RULES.playerR);
       }
     }
+
+    this.stepBooths(players);
 
     // 5) 위험한 곳에 닿으면 → 처음 자리로 (벌칙)
     for (const p of players) {
@@ -444,7 +481,9 @@ export default class TeamGame {
   stepCode(g, gi, players, now) {
     if (this.gateOpen[gi]) return;
     const spec = g.plates, cd = this.codes[gi];
-    cd.reader = players.some((p) => Math.hypot(p.x - spec.sign.x, p.y - spec.sign.y) < RULES.signR);
+    // 표지판을 읽을 수 있는 건 오두막에 들어간 주인뿐
+    const owner = cd.sealed && this.players.get(cd.owner);
+    cd.reader = !!owner && Math.hypot(owner.x - spec.sign.x, owner.y - spec.sign.y) < RULES.signR;
     spec.pads.forEach((pad, k) => {
       const on = players.some((p) => Math.hypot(p.x - pad.x, p.y - pad.y) < RULES.plateR);
       const entered = on && !cd.on[k];
@@ -542,7 +581,7 @@ export default class TeamGame {
       pk: this.pumpkins.map((p) => [r(p.x), r(p.y)]),
       lv: this.leverOn ? 1 : 0,
       br: this.bridgeOn ? 1 : 0,
-      cd: this.codes.map((c) => (c ? [c.seq, c.got, c.reader ? 1 : 0] : null)),
+      cd: this.codes.map((c) => (c ? [c.seq, c.got, c.reader ? 1 : 0, this.players.get(c.owner)?.slot ?? -1, c.sealed ? 1 : 0] : null)),
       b: this.berries.map((b) => (b ? 1 : 0)),
       m: this.mistakes
     };

@@ -46,7 +46,8 @@ test('그림 암호: 표지판에 아무도 없으면 발판이 안 눌림', () 
 test('그림 암호: 표지판 친구 + 순서대로 밟으면 문이 열림, 틀리면 처음부터', () => {
   const { g, ps, events } = makeGame(3, 1);
   const spec = g.level.gates[0].plates, cd = g.codes[0];
-  Object.assign(ps[0], { x: spec.sign.x, y: spec.sign.y });
+  Object.assign(ps[0], spec.booth.pad); run(g, 0.05);                      // 얼굴 발판 → 오두막 주인
+  Object.assign(ps[0], { x: spec.sign.x, y: spec.sign.y }); run(g, 0.05);   // 오두막 안으로
   const padOf = (sym) => spec.pads.find((p) => p.sym === sym);
   const away = { x: 600, y: 360 };
   // 틀린 그림 먼저
@@ -55,6 +56,60 @@ test('그림 암호: 표지판 친구 + 순서대로 밟으면 문이 열림, �
   assert.equal(fx(events, 'codeWrong').length, 1);
   for (const sym of cd.seq) { Object.assign(ps[1], padOf(sym)); run(g, 0.1); Object.assign(ps[1], away); run(g, 0.1); }
   assert.equal(g.gateOpen[0], true);
+});
+
+test('그림 암호 오두막: 얼굴 발판을 먼저 밟은 한 명만 들어가고, 들어가면 못 나옴', () => {
+  const { g, ps, events } = makeGame(3, 1);
+  const b = g.level.gates[0].plates.booth, cd = g.codes[0];
+  const inRoom = (p) => Math.abs(p.x - b.room.x) < b.room.w / 2 && Math.abs(p.y - b.room.y) < b.room.h / 2;
+  const toward = (p, q) => { const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy) || 1; return { x: dx / d, y: dy / d, a: false }; };
+  // 다른 친구는 문 앞에서 막힘
+  Object.assign(ps[1], b.pad);
+  run(g, 0.05);
+  assert.equal(cd.owner, 'p1');
+  assert.equal(fx(events, 'boothClaim').length, 1);
+  Object.assign(ps[0], { x: b.pad.x + 50, y: b.pad.y });
+  Object.assign(ps[1], { x: 640, y: 360 });       // 주인이 발판에서 멀어지면 자리를 내놓음
+  run(g, 0.05);
+  assert.equal(cd.owner, null);
+  Object.assign(ps[0], b.pad);                     // 이번엔 p0이 주인
+  run(g, 0.05);
+  assert.equal(cd.owner, 'p0');
+  Object.assign(ps[1], { x: b.pad.x + 40, y: b.pad.y });
+  for (let i = 0; i < 40; i++) { g.setInput('p1', toward(ps[1], b.room)); run(g, 0.05); }
+  assert.equal(inRoom(ps[1]), false);
+  // 주인은 걸어서 들어감
+  for (let i = 0; i < 40 && !inRoom(ps[0]); i++) { g.setInput('p0', toward(ps[0], b.room)); run(g, 0.05); }
+  assert.equal(inRoom(ps[0]), true);
+  assert.equal(cd.sealed, true);
+  run(g, 0.3);
+  assert.equal(cd.reader, true);
+  // 들어간 뒤에는 나오려 해도 못 나옴
+  for (let i = 0; i < 40; i++) { g.setInput('p0', toward(ps[0], b.pad)); run(g, 0.05); }
+  assert.equal(inRoom(ps[0]), true);
+  // 다른 친구를 안에 옮겨 놓아도 처음 자리로
+  Object.assign(ps[2], { x: b.room.x + 30, y: b.room.y });
+  run(g, 0.05);
+  assert.equal(inRoom(ps[2]), false);
+});
+
+test('그림 암호 오두막: 들어간 주인이 끊기면 다른 친구가 맡을 수 있음', () => {
+  const { g, ps } = makeGame(3, 1);
+  const b = g.level.gates[0].plates.booth, cd = g.codes[0];
+  Object.assign(ps[0], b.pad); run(g, 0.05);
+  Object.assign(ps[0], { x: b.room.x, y: b.room.y }); run(g, 0.05);
+  assert.equal(cd.sealed, true);
+  g.setConnected('p0', false); run(g, 0.05);
+  assert.equal(cd.owner, null);
+  Object.assign(ps[1], b.pad); run(g, 0.05);
+  assert.equal(cd.owner, 'p1');
+});
+
+test('새 단계를 시작하면 지난 단계의 깜빡임(무적)이 남지 않음', () => {
+  const { g, ps } = makeGame(3, 1);
+  ps[0].safeUntil = 99999;
+  g.loadLevel(base + 2);
+  assert.equal(ps[0].safeUntil, 0);
 });
 
 test('그림 암호는 도전할 때마다 바뀜', () => {

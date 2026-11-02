@@ -259,13 +259,13 @@ socket.on('state', (s) => {
   $('hud-miss').textContent = `💥 ${s.m}`;
 });
 
-// 표지판 앞에 선 친구(와 구경하는 선생님)에게만 암호를 보여 줌. 망루 위 친구에게는 안내
+// 오두막에 들어간 친구(와 구경하는 선생님)에게만 암호를 보여 줌. 망루 위 친구에게는 안내
 function showPuzzlePanels(s) {
   const mine = s.p.find((p) => p[0] === me?.slot);
   let codeShown = false;
   level.gates.forEach((gate, i) => {
     if (!gate.code || !s.cd?.[i] || s.g[i] || codeShown) return;
-    const atSign = me?.watch || (mine && Math.hypot(mine[1] - gate.code.sign.x, mine[2] - gate.code.sign.y) < RULES.signR);
+    const atSign = me?.watch || (mine && s.cd[i][3] === me.slot && Math.hypot(mine[1] - gate.code.sign.x, mine[2] - gate.code.sign.y) < RULES.signR);
     if (!atSign) return;
     const [seq, got] = s.cd[i];
     $('code-seq').innerHTML = seq.map((sym, k) => `<span class="${k < got ? 'done' : ''}">${SYMBOLS[sym]}</span>`).join(' → ');
@@ -291,6 +291,12 @@ socket.on('fx', (fx) => {
     case 'codeOk': Sfx.plate(); say('🔢 딩동!', 1200); break;
     case 'codeWrong': Sfx.stun(); say('🔢 땡!', 1500); break;
     case 'codeNoReader': Sfx.stun(); break;
+    case 'boothClaim': case 'boothSeal': {
+      Sfx.plate();
+      const who = fx.slot === me?.slot && !me.watch ? '내가' : `${roster.find((r) => r.slot === fx.slot)?.name || '친구'}이(가)`;
+      say(fx.type === 'boothClaim' ? `🔢 ${who} 암호 오두막을 맡았어요! 오두막으로 들어가요` : `🔢 ${who} 오두막에 들어갔어요. 이제 못 나와요, 암호를 읽어 주세요!`, 2500);
+      break;
+    }
     case 'crateSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 바구니가 처음 자리로 돌아갔어요', 3000); break;
     case 'oops': {
       world.poof(fx.x, fx.y, fx.cause);

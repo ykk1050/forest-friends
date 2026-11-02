@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeAnimal, toon } from './animals.js';
 import { SYMBOLS } from '/shared/levelkit.js';
-import { RULES } from '/shared/constants.js';
+import { RULES, ANIMALS, TEACHER_ANIMAL } from '/shared/constants.js';
 import {
   THEMES, groundTexture, emojiTexture, makeTree, makeFlower, makeRock, makeHouse, makeCrate,
   makeBee, makeSnowball, makeLog, makeThorn, makeStrawberry, makeFloorPatch, makePumpkin,
@@ -107,6 +107,14 @@ export default class World3D {
     this.overviewLook = new THREE.Vector3(0, 0, -0.4);
     cam.updateProjectionMatrix();
     this.camReady = false;
+  }
+
+  faceTexture(slot) {
+    const kind = this.players?.get(slot)?.kind;
+    const emoji = slot < 0 || !kind ? '❓' : kind === 'owl' ? TEACHER_ANIMAL.emoji : ANIMALS.find((a) => a.id === kind)?.emoji || '🐾';
+    this.faceTex ??= new Map();
+    if (!this.faceTex.has(emoji)) this.faceTex.set(emoji, emojiTexture(emoji));
+    return this.faceTex.get(emoji);
   }
 
   // ---------- 카메라 ----------
@@ -324,7 +332,20 @@ export default class World3D {
       const prog = makeLabel('', { height: 0.6 });
       prog.position.set(wx(gate.door.x), WALL_H + 0.6, wz(gate.door.y));
       g.add(prog);
-      return { pads, prog, sign: gate.code.sign, signLab };
+      // 오두막 문 + 문 앞 얼굴 발판 (먼저 밟은 친구 얼굴이 나타남)
+      const b = gate.code.booth;
+      const doorMat = new THREE.MeshToonMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 });
+      const boothDoor = new THREE.Mesh(new THREE.BoxGeometry(b.door.w * S, WALL_H, b.door.h * S), doorMat);
+      boothDoor.position.set(wx(b.door.x), WALL_H / 2, wz(b.door.y));
+      g.add(boothDoor);
+      const facePad = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.14, 24), new THREE.MeshToonMaterial({ color: 0xffe0b2 }));
+      facePad.position.set(wx(b.pad.x), 0.07, wz(b.pad.y));
+      const faceMat = new THREE.MeshBasicMaterial({ map: this.faceTexture(-1), transparent: true });
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), faceMat);
+      face.rotation.x = -Math.PI / 2; face.position.y = 0.08;
+      facePad.add(face);
+      g.add(facePad);
+      return { pads, prog, sign: gate.code.sign, signLab, doorMat, faceMat, owner: -1, sealed: false };
     });
 
     // 울타리
@@ -526,6 +547,15 @@ export default class World3D {
       const len = s.cd[i][0].length;
       cg.prog.userData.set(s.g[i] ? '🔓' : '●'.repeat(got) + '○'.repeat(len - got), s.g[i] ? '#fff' : '#ffeb3b');
       cg.signLab.userData.set(reader ? '🔢 읽는 중!' : '🔢 ?', reader ? '#2e7d32' : '#5d4037');
+      const owner = s.cd[i][3] ?? -1, sealed = !!s.cd[i][4];
+      if (owner !== cg.owner || sealed !== cg.sealed) {
+        cg.owner = owner; cg.sealed = sealed;
+        cg.faceMat.map = this.faceTexture(owner);
+        // 주인을 기다릴 때는 하얗게 비치는 문, 주인 친구가 정해지면 그 친구 색, 들어가면 꽉 닫힌 문
+        const pl = this.players.get(owner);
+        cg.doorMat.color.set(sealed ? 0x8d6e63 : pl ? pl.color : 0xffffff);
+        cg.doorMat.opacity = sealed ? 1 : 0.45;
+      }
     });
     (this.pumpkinObjs || []).forEach((p, i) => {
       if (!s.pk?.[i]) return;

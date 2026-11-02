@@ -33,11 +33,29 @@ export const snowball = (path, speed = 150, extra = {}) => ({ kind: 'snowball', 
 export const log = (path, w, h, speed = 140, extra = {}) => ({ kind: 'log', w, h, path, speed, ...extra });
 // ───── 생각하는 협동 퍼즐 (수수께끼 숲) ─────
 // 그림 암호 문: 표지판(sign) 앞에 선 친구 화면에만 암호가 보이고, 그동안만 그림 발판(pads)이 눌림
+// 표지판은 울타리 오두막 안에 있음. 문(door: 'up'|'down'|'left'|'right') 앞 얼굴 발판을 처음 밟은 친구 한 명만 들어갈 수 있고,
+// 한번 들어가면 그 단계가 끝날 때까지 못 나옴
 export const SYMBOLS = ['⭐', '🌙', '❤️', '🍀', '🍎', '💎'];
-export const code = (sign, pads, len = 3) => ({
-  type: 'code', sign: { x: sign[0], y: sign[1] }, len,
+export const code = (sign, pads, len = 3, door = 'down') => ({
+  type: 'code', sign: { x: sign[0], y: sign[1] }, len, door,
   pads: pads.map(([x, y], i) => ({ x, y, sym: i }))
 });
+export const BOOTH = { hw: 60, hh: 50, t: 16, gap: 64, pad: 40 };   // 안쪽 반 너비·반 높이, 울타리 두께, 문 너비, 얼굴 발판 거리
+// 오두막 울타리(walls) · 문(door) · 안쪽(room) · 얼굴 발판(pad)
+export function signBooth(sign, side) {
+  const { hw, hh, t, gap, pad } = BOOTH;
+  const x1 = sign.x - hw, x2 = sign.x + hw, y1 = sign.y - hh, y2 = sign.y + hh;
+  const g1x = sign.x - gap / 2, g2x = sign.x + gap / 2, g1y = sign.y - gap / 2, g2y = sign.y + gap / 2;
+  const full = { up: R(x1 - t, y1 - t, x2 + t, y1), down: R(x1 - t, y2, x2 + t, y2 + t), left: R(x1 - t, y1, x1, y2), right: R(x2, y1, x2 + t, y2) };
+  const open = {
+    up: { wall: [R(x1 - t, y1 - t, g1x, y1), R(g2x, y1 - t, x2 + t, y1)], door: R(g1x, y1 - t, g2x, y1), pad: { x: sign.x, y: y1 - t - pad } },
+    down: { wall: [R(x1 - t, y2, g1x, y2 + t), R(g2x, y2, x2 + t, y2 + t)], door: R(g1x, y2, g2x, y2 + t), pad: { x: sign.x, y: y2 + t + pad } },
+    left: { wall: [R(x1 - t, y1, x1, g1y), R(x1 - t, g2y, x1, y2)], door: R(x1 - t, g1y, x1, g2y), pad: { x: x1 - t - pad, y: sign.y } },
+    right: { wall: [R(x2, y1, x2 + t, g1y), R(x2, g2y, x2 + t, y2)], door: R(x2, g1y, x2 + t, g2y), pad: { x: x2 + t + pad, y: sign.y } }
+  }[side];
+  const walls = Object.keys(full).flatMap((k) => (k === side ? open.wall : [full[k]]));
+  return { walls, door: open.door, room: R(x1, y1, x2, y2), pad: open.pad };
+}
 // 레버: 누군가 레버 위에 서 있는 동안 다리가 생기고(bridges), 레버 물살(lever:true)이 멈춤
 export const lever = (x, y) => ({ x, y });
 // 안개 늪: 80칸 격자 중 tiles([열,행])만 안전한 징검다리. 망루(lookout)에 선 친구 화면에만 보임
@@ -53,7 +71,13 @@ export const ring = (cx, cy, r, n = 8) => Array.from({ length: n }, (_, i) => {
 export function L(def) {
   const walls = [...(def.walls || [])];
   const gates = [];
-  (def.gateDefs || []).forEach((g) => { walls.push(...g.walls); gates.push(g.gate); });
+  (def.gateDefs || []).forEach((g) => {
+    walls.push(...g.walls);
+    if (g.gate.plates.type !== 'code') return gates.push(g.gate);
+    const { walls: bw, ...booth } = signBooth(g.gate.plates.sign, g.gate.plates.door);
+    walls.push(...bw);
+    gates.push({ ...g.gate, plates: { ...g.gate.plates, booth } });
+  });
   return {
     name: def.name, world: def.world,
     start: def.start || { x: 150, y: 360 },

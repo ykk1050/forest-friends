@@ -32,7 +32,7 @@ export function mirrorLevel(L, fx, fy) {
   const rect = (r) => ({ ...r, x: X(r.x), y: Y(r.y) });
   const plates = (s) => {
     if (s.type === 'crate') return { ...s, x: X(s.x), y: Y(s.y) };
-    if (s.type === 'code') return { ...s, sign: pt(s.sign), pads: s.pads.map(pt) };
+    if (s.type === 'code') return { ...s, sign: pt(s.sign), pads: s.pads.map(pt), booth: { door: rect(s.booth.door), room: rect(s.booth.room), pad: pt(s.booth.pad) } };
     return { ...s, at: s.at.map(pt) };
   };
   const swamps = L.swamps.map((sw) => ({
@@ -104,7 +104,8 @@ function randomBerries(L, rand) {
   const avoid = [
     homeRect(L.home), { x: L.crate.x, y: L.crate.y, w: 140, h: 140 },
     ...L.gates.map((g) => ({ ...g.door, w: g.door.w + 60, h: g.door.h + 60 })),
-    ...L.streams, ...L.bridges
+    ...L.streams, ...L.bridges,
+    ...L.gates.filter((g) => g.plates.booth).map((g) => ({ ...g.plates.booth.room, w: g.plates.booth.room.w + 120, h: g.plates.booth.room.h + 120 }))
   ];
   const picks = [];
   for (let tries = 0; tries < 400 && picks.length < 3; tries++) {
