@@ -350,6 +350,30 @@ export default class World3D {
       const boothDoor = new THREE.Mesh(new THREE.BoxGeometry(b.door.w * S, WALL_H, b.door.h * S), doorMat);
       boothDoor.position.set(wx(b.door.x), WALL_H / 2, wz(b.door.y));
       g.add(boothDoor);
+      // 주인이 들어가면 위에서 쾅 내려와 닫히는 나무 문 (평소엔 위에 숨어 있음)
+      const shut = new THREE.Group();
+      const horiz = b.door.w > b.door.h;
+      const len = (horiz ? b.door.w : b.door.h) * S + 0.1, thick = 0.24;
+      const n = 4;
+      for (let k = 0; k < n; k++) {
+        const t = (-0.5 + (k + 0.5) / n) * len;
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(horiz ? len / n * 0.9 : thick, WALL_H + 0.2, horiz ? thick : len / n * 0.9), toon(k % 2 ? 0x8d6e63 : 0x795548));
+        plank.position.set(horiz ? t : 0, (WALL_H + 0.2) / 2, horiz ? 0 : t);
+        plank.castShadow = true;
+        shut.add(plank);
+      }
+      for (const y of [0.25, WALL_H - 0.1]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(horiz ? len : thick + 0.08, 0.14, horiz ? thick + 0.08 : len), toon(0x4e342e));
+        bar.position.y = y;
+        shut.add(bar);
+      }
+      const lock = makeLabel('🔒', { height: 0.7 });
+      lock.position.y = WALL_H + 0.7;
+      shut.add(lock);
+      shut.position.set(wx(b.door.x), 4, wz(b.door.y));
+      shut.visible = false;
+      shut.userData.v = 0;
+      g.add(shut);
       const facePad = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.14, 24), new THREE.MeshToonMaterial({ color: 0xffe0b2 }));
       facePad.position.set(wx(b.pad.x), 0.07, wz(b.pad.y));
       const faceMat = new THREE.MeshBasicMaterial({ map: this.faceTexture(-1), transparent: true });
@@ -357,7 +381,7 @@ export default class World3D {
       face.rotation.x = -Math.PI / 2; face.position.y = 0.08;
       facePad.add(face);
       g.add(facePad);
-      return { pads, prog, sign: gate.code.sign, signLab, doorMat, faceMat, owner: -1, sealed: false };
+      return { pads, prog, sign: gate.code.sign, signLab, doorMat, boothDoor, shut, at: b.door, faceMat, owner: -1, sealed: false, fresh: true };
     });
 
     // 울타리
@@ -569,9 +593,15 @@ export default class World3D {
         cg.faceMat.map = this.faceTexture(owner);
         // 주인을 기다릴 때는 하얗게 비치는 문, 주인 친구가 정해지면 그 친구 색, 들어가면 꽉 닫힌 문
         const pl = this.players.get(owner);
-        cg.doorMat.color.set(sealed ? 0x8d6e63 : pl ? pl.color : 0xffffff);
-        cg.doorMat.opacity = sealed ? 1 : 0.45;
+        cg.doorMat.color.set(pl ? pl.color : 0xffffff);
+        cg.doorMat.opacity = 0.45;
+        cg.boothDoor.visible = !sealed;
+        // 맵을 새로 그린 직후(늦게 들어온 구경꾼 등)에는 이미 닫힌 문을 그냥 닫힌 채로
+        if (sealed && cg.fresh) { cg.shut.visible = true; cg.shut.position.y = 0; Object.assign(cg.shut.userData, { v: 0, landed: true, done: true }); }
+        else if (sealed) { cg.shut.visible = true; cg.shut.position.y = 4; Object.assign(cg.shut.userData, { v: 0, landed: false, done: false }); }
+        else cg.shut.visible = false;
       }
+      cg.fresh = false;
     });
     (this.pumpkinObjs || []).forEach((p, i) => {
       if (!s.pk?.[i]) return;
@@ -604,7 +634,7 @@ export default class World3D {
       const v = new THREE.Vector3((Math.random() - 0.5) * 5, 2 + Math.random() * 3, (Math.random() - 0.5) * 5);
       this.addParticle(m, v, 0.8, { grow: true });
     }
-    const label = makeLabel(cause === 'water' ? '풍덩!' : cause === 'bee' ? '앗 따가워!' : cause === 'thorn' ? '아야!' : '쿵!', { height: 0.7, color: '#ffeb3b' });
+    const label = makeLabel(cause === 'water' ? '풍덩!' : cause === 'bee' ? '앗 따가워!' : cause === 'thorn' ? '아야!' : cause === 'gate' ? '쾅! 닫혔어요' : '쿵!', { height: 0.7, color: '#ffeb3b' });
     label.position.copy(at).add(new THREE.Vector3(0, 1.4, 0));
     this.addParticle(label, new THREE.Vector3(0, 1.2, 0), 1.2, { noGravity: true });
   }
@@ -694,6 +724,18 @@ export default class World3D {
       p.obj.position.lerp(p.target, k);
       const d = p.obj.position.clone().sub(prev);
       p.obj.userData.roll.rotation.z -= d.x * 1.5; p.obj.userData.roll.rotation.x += d.z * 1.5;
+    });
+    // 오두막 문이 위에서 떨어져 쿵 닫힘 (한 번 통 튀었다가 멈춤)
+    (this.codeGates || []).forEach((cg) => {
+      if (!cg?.shut.visible || cg.shut.userData.done) return;
+      const u = cg.shut.userData;
+      u.v -= 30 * dt;
+      cg.shut.position.y += u.v * dt;
+      if (cg.shut.position.y <= 0) {
+        cg.shut.position.y = 0;
+        if (!u.landed) { u.landed = true; this.poof(cg.at.x, cg.at.y, 'gate'); }
+        if (u.v < -2.5) u.v = -u.v * 0.3; else { u.v = 0; u.done = true; }
+      }
     });
     (this.streams || []).forEach((s) => {
       s.tex.offset.x -= s.v.x * S * dt / 1.5; s.tex.offset.y += s.v.y * S * dt / 1.5;

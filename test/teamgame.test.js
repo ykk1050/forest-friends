@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import TeamGame from '../server/TeamGame.js';
+import { fromOldIndex } from '../shared/missions.js';
 import { LEVELS } from '../shared/levels.js';
 import { homeRect, hazardPos } from '../shared/geometry.js';
 
@@ -8,7 +9,7 @@ function makeGame(n, level = 0) {
   const events = [];
   const g = new TeamGame(1, (ev, data) => events.push([ev, data]));
   for (let i = 0; i < n; i++) g.addPlayer(`p${i}`, `학생${i}`);
-  g.start(level);
+  g.start(fromOldIndex(level));   // 예전 번호(퍼즐 섞기 전)로 고른 단계
   return { g, events, ps: [...g.players.values()] };
 }
 const run = (g, sec) => { for (let i = 0; i < sec * 20; i++) g.tick(0.05); };
@@ -57,7 +58,7 @@ test('기록 초기화: 별·열린 단계가 지워지고 대기실 1-1로', ()
   g.unlockAll();
   g.resetProgress();
   assert.equal(g.status, 'lobby');
-  assert.deepEqual(g.progress.team, { unlocked: 0, best: {} });
+  assert.deepEqual({ ...g.progress.team, order: undefined }, { unlocked: 0, best: {}, order: undefined });
   assert.deepEqual(g.current, { team: 0, duo: 0 });
 });
 

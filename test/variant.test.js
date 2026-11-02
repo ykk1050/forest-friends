@@ -26,7 +26,7 @@ test('뒤집기 4가지 모두 풀 수 있음 (모둠 미션 전체)', () => {
 });
 
 test('같은 단계라도 도전할 때마다 달라짐', () => {
-  const lv = MODES.team.levels[30];   // 망루 길잡이
+  const lv = MODES.team.levels.find((l) => l.name === '망루 길잡이');
   const seen = new Set();
   for (let s = 1; s <= 10; s++) {
     const v = makeVariant(lv, 3, s);

@@ -1,5 +1,5 @@
 import { RULES, FIELD, COLORS, COLOR_NAMES, ANIMALS, TEAM_MAX } from '../shared/constants.js';
-import { levelsOf, modeFor, levelCode } from '../shared/missions.js';
+import { levelsOf, modeFor, levelCode, ORDER_VERSION, fromOldIndex } from '../shared/missions.js';
 import { analyzeLevel, crateNeed } from '../shared/solver.js';
 import { makeVariant } from '../shared/variant.js';
 import {
@@ -12,7 +12,8 @@ function parOf(mode, i, n) {
   if (!parCache.has(key)) parCache.set(key, analyzeLevel(levelsOf(mode)[i], n).par || 60);
   return parCache.get(key);
 }
-const emptyProgress = () => ({ unlocked: 0, best: {} });
+// order: 단계 순서 판 (퍼즐 단계를 섞기 전에 저장한 기록은 번호를 바꿔서 되살림)
+const emptyProgress = () => ({ unlocked: 0, best: {}, order: ORDER_VERSION });
 
 // 그림 암호 만들기: 그림 발판 중에서 len개를 겹치지 않게 골라 순서 정하기 (도전할 때마다 바뀜)
 function newCode(spec) {
@@ -117,7 +118,10 @@ export default class TeamGame {
       const pr = src[mode];
       if (!pr) continue;
       const max = levelsOf(mode).length - 1;
-      this.progress[mode] = { unlocked: clamp(+pr.unlocked || 0, 0, max), best: pr.best || {} };
+      const old = pr.order !== ORDER_VERSION;
+      const idx = (i) => (old ? fromOldIndex(clamp(+i || 0, 0, max)) : clamp(+i || 0, 0, max));
+      const best = Object.fromEntries(Object.entries(pr.best || {}).map(([i, b]) => [idx(i), b]));
+      this.progress[mode] = { unlocked: idx(pr.unlocked), best, order: ORDER_VERSION };
       this.current[mode] = this.progress[mode].unlocked;
     }
     this.emit('progress', this.progressInfo());

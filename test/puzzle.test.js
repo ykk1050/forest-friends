@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import TeamGame from '../server/TeamGame.js';
-import { levelsOf } from '../shared/missions.js';
+import { levelsOf, fromOldIndex, PUZZLE_SLOTS } from '../shared/missions.js';
 
 const base = 30; // 수수께끼 숲 6-1 = 31번째
 function makeGame(n, k) {
   const events = [];
   const g = new TeamGame(1, (ev, data) => events.push([ev, data]));
   for (let i = 0; i < n; i++) g.addPlayer(`p${i}`, `학생${i}`);
-  g.start(base + k);
+  g.start(fromOldIndex(base + k));
   return { g, events, ps: [...g.players.values()] };
 }
 const run = (g, sec) => { for (let i = 0; i < sec * 20; i++) g.tick(0.05); };
@@ -16,10 +16,36 @@ const fx = (events, type) => events.filter(([e, d]) => e === 'fx' && d.type === 
 
 test('수수께끼 숲은 모둠·짝 모두 6단계, 2명 이상', () => {
   for (const mode of ['team', 'duo']) {
-    const lv = levelsOf(mode).slice(30);
+    const lv = levelsOf(mode).filter((l) => l.world === 5);
     assert.equal(lv.length, 6);
-    assert.ok(lv.every((l) => l.world === 5 && l.minPlayers === 2));
+    assert.ok(lv.every((l) => l.minPlayers === 2));
   }
+});
+
+test('수수께끼 숲 6단계는 순서대로, 앞 단계들 사이에 섞여 나옴 (처음 3단계·연달아는 없음)', () => {
+  for (const mode of ['team', 'duo']) {
+    const at = levelsOf(mode).map((l, i) => (l.world === 5 ? i : -1)).filter((i) => i >= 0);
+    assert.deepEqual(at, PUZZLE_SLOTS);
+    assert.ok(at[0] >= 3 && at.at(-1) < 35);
+    assert.ok(at.every((v, i) => i === 0 || v - at[i - 1] > 1));
+    assert.deepEqual(at.map((i) => levelsOf(mode)[i].name.replace(' 둘이서', '')),
+      ['망루 길잡이', '그림 암호 문', '다리 레버', '물살 멈추기', '망루와 암호', '수수께끼 숲 대작전']);
+  }
+});
+
+test('퍼즐을 섞기 전에 저장한 기록은 같은 단계로 옮겨서 되살림', () => {
+  const g = new TeamGame(1, () => {});
+  g.addPlayer('p0', '학생0');
+  // 예전 번호: 2번 = 1-3, 30번 = 첫 퍼즐, 열린 단계 = 31번(두 번째 퍼즐)
+  g.setProgress({ team: { unlocked: 31, best: { 2: { stars: 3, time: 10 }, 30: { stars: 2, time: 20 } } } });
+  const lv = levelsOf('team');
+  const pr = g.progress.team;
+  assert.equal(lv[pr.unlocked].name, '그림 암호 문');
+  const names = Object.keys(pr.best).map((i) => lv[i].name).sort();
+  assert.deepEqual(names, [lv[2].name, '망루 길잡이'].sort());
+  // 지금 형식으로 저장한 기록은 그대로
+  g.setProgress({ team: { ...pr } });
+  assert.deepEqual(g.progress.team.best, pr.best);
 });
 
 test('안개 늪: 징검다리는 안전, 다른 칸은 빠져서 처음 자리로', () => {
@@ -108,14 +134,14 @@ test('그림 암호 오두막: 들어간 주인이 끊기면 다른 친구가 �
 test('새 단계를 시작하면 지난 단계의 깜빡임(무적)이 남지 않음', () => {
   const { g, ps } = makeGame(3, 1);
   ps[0].safeUntil = 99999;
-  g.loadLevel(base + 2);
+  g.loadLevel(fromOldIndex(base + 2));
   assert.equal(ps[0].safeUntil, 0);
 });
 
 test('그림 암호는 도전할 때마다 바뀜', () => {
   const { g } = makeGame(3, 4);
   const seen = new Set();
-  for (let i = 0; i < 8; i++) { g.loadLevel(base + 4); seen.add(g.codes[0].seq.join()); }
+  for (let i = 0; i < 8; i++) { g.loadLevel(fromOldIndex(base + 4)); seen.add(g.codes[0].seq.join()); }
   assert.ok(seen.size > 1);
 });
 
