@@ -74,13 +74,23 @@ $('join-btn').onclick = () => {
   join({ code, name, team: pickedTeam });
 };
 
+let rejoinTries = 0;
 function join(info) {
   socket.emit('student:join', info, (res) => {
     if (!res.ok) {
+      // 서버가 다시 켜지는 중이면 선생님 화면이 방을 다시 열 때까지 기다렸다가 자동으로 다시 들어감
+      if (info.pid && res.noRoom && (rejoinTries = (rejoinTries || 0) + 1) <= 200) {
+        $('offline').textContent = '서버가 다시 켜지는 중이에요… 잠시만 기다려 주세요 📡';
+        $('offline').classList.remove('hidden');
+        setTimeout(() => socket.connected && join(info), 3000);
+        return;
+      }
       if (info.pid) { store.set(null); me = null; show('join'); }
       $('join-err').textContent = res.err;
       return;
     }
+    rejoinTries = 0;
+    $('offline').classList.add('hidden');
     me = { ...info, pid: res.pid, team: res.team, slot: res.slot, name: res.name, isTeacher: res.isTeacher };
     store.set(me);
     $('join-err').textContent = '';
@@ -306,6 +316,7 @@ socket.on('fx', (fx) => {
       say(fx.type === 'boothClaim' ? `🔢 ${who} 암호 오두막을 맡았어요! 오두막으로 들어가요` : `🔢 ${who} 오두막에 들어갔어요. 이제 못 나와요, 암호를 읽어 주세요!`, 2500);
       break;
     }
+    case 'boothOpen': Sfx.plate(); say('🔓 암호를 맞혔어요! 오두막 문이 열렸어요', 2500); break;
     case 'crateSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 바구니가 처음 자리로 돌아갔어요', 3000); break;
     case 'pumpkinSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 호박이 처음 자리로 돌아갔어요', 3000); break;
     case 'oops': {
@@ -344,7 +355,6 @@ socket.on('result', (r) => {
   resultTimer = setInterval(() => { left = Math.max(0, left - 1); tickText(); }, 1000);
 });
 
-$('res-retry').onclick = () => socket.emit('team:choice', 'retry');
 $('res-next').onclick = () => socket.emit('team:choice', 'next');
 
 socket.on('finished', (p) => {
@@ -363,7 +373,10 @@ socket.on('kicked', () => {
 });
 
 // ---------- 연결 끊김 · 새로고침 복구 ----------
-socket.on('disconnect', () => $('offline').classList.remove('hidden'));
+socket.on('disconnect', () => {
+  $('offline').textContent = '연결이 끊겼어요… 다시 연결하는 중 📡';
+  $('offline').classList.remove('hidden');
+});
 socket.on('connect', () => {
   $('offline').classList.add('hidden');
   if (me?.watch) return socket.emit('watch', { code: me.code, team: me.team });

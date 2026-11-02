@@ -606,8 +606,14 @@ export default class World3D {
       const len = s.cd[i][0].length;
       cg.prog.userData.set(s.g[i] ? '🔓' : '●'.repeat(got) + '○'.repeat(len - got), s.g[i] ? '#fff' : '#ffeb3b');
       cg.signLab.userData.set(reader ? '🔢 읽는 중!' : '🔢 ?', reader ? '#2e7d32' : '#5d4037');
-      const owner = s.cd[i][3] ?? -1, sealed = !!s.cd[i][4];
-      if (owner !== cg.owner || sealed !== cg.sealed) {
+      const owner = s.cd[i][3] ?? -1, sealed = !!s.cd[i][4], open = !!s.g[i];
+      if (open && !cg.open) {
+        // 암호를 다 맞힘 → 오두막 문이 위로 들려 열림
+        cg.open = true; cg.sealed = false;
+        cg.boothDoor.visible = false;
+        if (cg.shut.visible) Object.assign(cg.shut.userData, { rise: true, done: false });
+      }
+      if (!cg.open && (owner !== cg.owner || sealed !== cg.sealed)) {
         cg.owner = owner; cg.sealed = sealed;
         cg.faceMat.map = this.faceTexture(owner);
         // 주인을 기다릴 때는 하얗게 비치는 문, 주인 친구가 정해지면 그 친구 색, 들어가면 꽉 닫힌 문
@@ -748,6 +754,11 @@ export default class World3D {
     (this.codeGates || []).forEach((cg) => {
       if (!cg?.shut.visible || cg.shut.userData.done) return;
       const u = cg.shut.userData;
+      if (u.rise) {
+        cg.shut.position.y += 5 * dt;
+        if (cg.shut.position.y > 4) { cg.shut.visible = false; u.done = true; }
+        return;
+      }
       u.v -= 30 * dt;
       cg.shut.position.y += u.v * dt;
       if (cg.shut.position.y <= 0) {

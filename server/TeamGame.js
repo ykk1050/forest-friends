@@ -201,14 +201,15 @@ export default class TeamGame {
   boothDoorsFor(p) {
     return this.level.gates.flatMap((g, i) => {
       const b = g.plates.booth, cd = this.codes[i];
-      return b && !(cd.owner === p.pid && !cd.sealed) ? [b.door] : [];
+      // 암호를 다 맞혀 문이 열리면 오두막 문도 열림 (갇힌 친구가 나올 수 있게)
+      return b && !this.gateOpen[i] && !(cd.owner === p.pid && !cd.sealed) ? [b.door] : [];
     });
   }
 
   stepBooths(players) {
     this.level.gates.forEach((g, i) => {
       const b = g.plates.booth, cd = this.codes[i];
-      if (!b) return;
+      if (!b || this.gateOpen[i]) return;
       const owner = cd.owner && this.players.get(cd.owner);
       // 주인이 끊기거나 나가면 다른 친구가 맡을 수 있게
       if (cd.owner && (!owner || !owner.connected)) { cd.owner = null; cd.sealed = false; }
@@ -279,8 +280,7 @@ export default class TeamGame {
   // ---------- 결과 화면에서 고르기 ----------
   choose(pid, choice) {
     if (!this.players.has(pid) || this.status !== 'result') return;
-    if (choice === 'retry') this.loadLevel(this.levelIndex);
-    else if (choice === 'next' && this.levelIndex + 1 < this.levels.length) this.loadLevel(this.levelIndex + 1);
+    if (choice === 'next' && this.levelIndex + 1 < this.levels.length) this.loadLevel(this.levelIndex + 1);
   }
 
   // ---------- 물리 한 걸음 ----------
@@ -393,6 +393,12 @@ export default class TeamGame {
       }
     }
 
+    // 물결 위의 호박도 물결 방향으로 떠내려감
+    for (const pk of [...this.pumpkins]) {
+      const s = this.activeStreams().find((st) => inRect(pk.x, pk.y, st));
+      if (s) this.movePumpkin(pk, s.vx * dt, s.vy * dt);
+    }
+
     // 4) 동물 이동 + 충돌 + 물살
     const solids = [...L.walls, L.house, ...this.closedDoors()];
     const crateNow = { x: c.x, y: c.y, w: half * 2, h: half * 2 };
@@ -500,7 +506,12 @@ export default class TeamGame {
       if (pad.sym === cd.seq[cd.got]) {
         cd.got++;
         this.emit('fx', { type: 'codeOk', gate: gi, got: cd.got });
-        if (cd.got >= cd.seq.length) { this.gateOpen[gi] = true; this.emit('fx', { type: 'door', gate: gi }); }
+        if (cd.got >= cd.seq.length) {
+          this.gateOpen[gi] = true;
+          this.emit('fx', { type: 'door', gate: gi });
+          if (cd.sealed) this.emit('fx', { type: 'boothOpen', gate: gi, slot: this.players.get(cd.owner)?.slot });
+          cd.sealed = false;
+        }
       } else {
         cd.got = 0;
         this.emit('fx', { type: 'codeWrong', gate: gi });
@@ -510,13 +521,19 @@ export default class TeamGame {
 
   moveCrate(dt) {
     const c = this.crate, half = RULES.crateHalf;
-    // 센 물살: 바구니도 떠내려감. 물(연못)에 빠지면 바구니가 처음 자리로
+    const solids = this.crateSolids();
+    const blocked = (x, y) => {
+      if (x - half < 0 || x + half > FIELD.w || y - half < 0 || y + half > FIELD.h) return true;
+      const r = { x, y, w: half * 2, h: half * 2 };
+      return solids.some((s) => rectsOverlap(r, s));
+    };
+    // 물결 위에 올라간 바구니는 물결 방향으로 떠내려감 (미는 힘에 더해짐 → 비스듬히 밀어야 건넘)
     for (const s of this.activeStreams()) {
-      if (!s.strong || !inRect(c.x, c.y, s)) continue;
-      const hard = [...this.level.walls, this.level.house, ...this.closedDoors()];
-      const nx = clamp(c.x + s.vx * dt, half, FIELD.w - half), ny = clamp(c.y + s.vy * dt, half, FIELD.h - half);
-      if (!hard.some((w) => rectsOverlap({ x: nx, y: ny, w: half * 2, h: half * 2 }, w))) { c.x = nx; c.y = ny; }
+      if (!inRect(c.x, c.y, s)) continue;
+      if (!blocked(c.x + s.vx * dt, c.y)) c.x += s.vx * dt;
+      if (!blocked(c.x, c.y + s.vy * dt)) c.y += s.vy * dt;
     }
+    // 물(연못)·늪 구멍에 빠지면 바구니가 처음 자리로
     if (this.water().some((w) => inRect(c.x, c.y, w))) {
       const at = { x: Math.round(c.x), y: Math.round(c.y) };
       Object.assign(c, { x: this.level.crate.x, y: this.level.crate.y, vx: 0, vy: 0 });
@@ -524,12 +541,6 @@ export default class TeamGame {
       this.emit('fx', { type: 'crateSplash', ...at });
       return;
     }
-    const solids = this.crateSolids();
-    const blocked = (x, y) => {
-      if (x - half < 0 || x + half > FIELD.w || y - half < 0 || y + half > FIELD.h) return true;
-      const r = { x, y, w: half * 2, h: half * 2 };
-      return solids.some((s) => rectsOverlap(r, s));
-    };
     if (!blocked(c.x + c.vx * dt, c.y)) c.x += c.vx * dt;
     if (!blocked(c.x, c.y + c.vy * dt)) c.y += c.vy * dt;
   }

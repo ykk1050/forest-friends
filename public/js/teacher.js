@@ -46,8 +46,14 @@ function createRoom() {
 // 새로고침해도 같은 방을 이어서 관리
 socket.on('connect', () => {
   if (!session?.code) return createRoom();
-  socket.emit('teacher:resume', session, (res) => (res.ok ? setRoom(res.code) : createRoom()));
+  socket.emit('teacher:resume', session, (res) => {
+    if (!res.ok) return createRoom();
+    setRoom(res.code);
+    if (res.recreated) restoreRecords();   // 서버가 다시 켜졌으면 별·기록을 다시 올려 줌
+  });
 });
+// Render 무료 서버가 쉬는 시간에 잠들지 않도록 5분마다 살짝 깨움
+setInterval(() => fetch('/health', { cache: 'no-store' }).catch(() => {}), 5 * 60 * 1000);
 
 $('start-all').onclick = () => socket.emit('teacher:startAll');
 $('lobby-all').onclick = () => { if (confirm('모든 모둠을 대기실로 보낼까요? (별·기록은 그대로예요)')) socket.emit('teacher:lobby'); };

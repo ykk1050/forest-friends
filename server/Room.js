@@ -6,10 +6,10 @@ const RECONNECT_GRACE_MS = 60_000;   // 연결이 끊겨도 1분 안에 돌아�
 
 // 선생님 한 명이 연 '반'. 그 안에 모둠(TeamGame)이 여러 개
 export default class Room {
-  constructor(io, code) {
+  constructor(io, code, token = crypto.randomBytes(12).toString('hex')) {
     this.io = io;
     this.code = code;
-    this.token = crypto.randomBytes(12).toString('hex');
+    this.token = token;
     this.members = new Map();  // pid → { team, socketId, leaveTimer, isTeacher }
     this.teams = Array.from({ length: TEAM_COUNT }, (_, i) =>
       new TeamGame(i + 1, (ev, data) => io.to(this.channel(i + 1)).emit(ev, data)));

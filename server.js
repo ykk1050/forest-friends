@@ -16,7 +16,8 @@ app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three
 app.get('/health', (_req, res) => res.send('ok'));   // 수업 전 서버 깨우기용
 
 const server = http.createServer(app);
-const io = new Server(server, { pingInterval: 10000, pingTimeout: 8000 });
+// 응답 기다리는 시간을 넉넉히: 무거운 3D 화면·학교 와이파이에서 잠깐 늦어도 끊지 않음
+const io = new Server(server, { pingInterval: 25000, pingTimeout: 30000 });
 
 const rooms = new Map(); // code → Room
 
@@ -40,11 +41,17 @@ io.on('connection', (socket) => {
   });
 
   socket.on('teacher:resume', ({ code, token } = {}, cb) => {
-    const room = roomOf(code);
+    let room = roomOf(code), recreated = false;
+    // 서버가 다시 켜져(Render 재시작·잠듦) 방이 사라졌으면 같은 코드로 다시 열어 학생들이 그대로 돌아올 수 있게
+    if (!room && /^\d{4}$/.test(String(code)) && typeof token === 'string' && token) {
+      room = new Room(io, String(code), token);
+      rooms.set(room.code, room);
+      recreated = true;
+    }
     if (!room || room.token !== token) return cb?.({ ok: false });
     socket.data.teacherOf = room.code;
     socket.join(room.teacherChannel);
-    cb?.({ ok: true, code: room.code });
+    cb?.({ ok: true, code: room.code, recreated });
   });
 
   const teacherRoom = () => rooms.get(socket.data.teacherOf);
@@ -60,7 +67,7 @@ io.on('connection', (socket) => {
   // ----- 학생 (선생님이 함께하기도 여기로) -----
   socket.on('student:join', ({ code, name, team, pid, teacherToken } = {}, cb) => {
     const room = roomOf(code);
-    if (!room) return cb?.({ ok: false, err: '방 코드를 찾을 수 없어요. 선생님 화면의 숫자를 확인해 주세요.' });
+    if (!room) return cb?.({ ok: false, noRoom: true, err: '방 코드를 찾을 수 없어요. 선생님 화면의 숫자를 확인해 주세요.' });
     const res = room.join(socket, { name: cleanName(name), team: +team, pid: pid ? String(pid) : null, teacherToken });
     if (res.ok) { socket.data.room = room.code; socket.data.pid = res.pid; }
     cb?.(res);

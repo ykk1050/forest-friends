@@ -82,6 +82,14 @@ test('그림 암호: 표지판 친구 + 순서대로 밟으면 문이 열림, �
   assert.equal(fx(events, 'codeWrong').length, 1);
   for (const sym of cd.seq) { Object.assign(ps[1], padOf(sym)); run(g, 0.1); Object.assign(ps[1], away); run(g, 0.1); }
   assert.equal(g.gateOpen[0], true);
+  // 암호를 맞히면 오두막 문이 열려 갇혔던 친구가 걸어 나올 수 있음
+  assert.equal(fx(events, 'boothOpen').length, 1);
+  const b = spec.booth, inRoom = (p) => Math.abs(p.x - b.room.x) < b.room.w / 2 && Math.abs(p.y - b.room.y) < b.room.h / 2;
+  for (let i = 0; i < 60 && inRoom(ps[0]); i++) {
+    const dx = b.pad.x - ps[0].x, dy = b.pad.y - ps[0].y, d = Math.hypot(dx, dy) || 1;
+    g.setInput('p0', { x: dx / d, y: dy / d, a: false }); run(g, 0.05);
+  }
+  assert.equal(inRoom(ps[0]), false);
 });
 
 test('그림 암호 오두막: 얼굴 발판을 먼저 밟은 한 명만 들어가고, 들어가면 못 나옴', () => {

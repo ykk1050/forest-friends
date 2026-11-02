@@ -101,9 +101,11 @@ test('딸기 3개 + 빨리 깨면 별 3개, 기록 저장·다음 단계 열림'
   assert.equal(g.result.stars, 3);
   assert.equal(g.progress.team.unlocked, 1);
   assert.equal(g.progress.team.best[0].stars, 3);
-  g.choose('p0', 'retry');
+  g.choose('p0', 'retry');   // 다시 하기는 없앰 → 그대로 결과 화면
+  assert.equal(g.status, 'result');
+  g.choose('p0', 'next');
   assert.equal(g.status, 'playing');
-  assert.equal(g.levelIndex, 0);
+  assert.equal(g.levelIndex, 1);
   assert.ok(events.some(([e]) => e === 'result'));
 });
 
@@ -198,4 +200,12 @@ test('집 건물은 동물·바구니가 못 지나감', () => {
   Object.assign(c, { x: h.x, y: h.y + h.h / 2 + 50, vx: 0, vy: -200 });
   for (let i = 0; i < 20; i++) g.moveCrate(0.05);
   assert.ok(c.y - 40 >= h.y + h.h / 2 - 1, '바구니가 집을 뚫고 들어감');
+});
+
+test('물결 위의 바구니는 물결 방향으로 떠내려감', () => {
+  const { g } = makeGame(1, LEVELS.findIndex((l) => l.streams.length && !l.streams[0].strong));
+  const st = g.level.streams[0], c = g.crate;
+  Object.assign(c, { x: st.x, y: 360, vx: 0, vy: 0 });
+  g.moveCrate(0.5);
+  assert.ok(Math.abs(c.y - 360 - st.vy * 0.5) < 1, `바구니가 ${c.y - 360}만큼만 움직임`);
 });
