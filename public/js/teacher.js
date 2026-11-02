@@ -51,7 +51,15 @@ socket.on('connect', () => {
 
 $('start-all').onclick = () => socket.emit('teacher:startAll');
 $('lobby-all').onclick = () => { if (confirm('모든 모둠을 대기실로 보낼까요? (별·기록은 그대로예요)')) socket.emit('teacher:lobby'); };
-$('unlock-all').onclick = () => { if (confirm('모든 모둠이 30단계 모두를 고를 수 있게 열까요?')) socket.emit('teacher:unlockAll'); };
+$('unlock-all').onclick = () => { if (confirm('모든 모둠이 36단계 모두를 고를 수 있게 열까요?')) socket.emit('teacher:unlockAll'); };
+$('reset-records').onclick = () => {
+  if (!confirm(`'${className()}' 학급의 모든 모둠 별·기록을 지우고 1-1부터 다시 시작할까요?
+(게임 중인 모둠은 대기실로 돌아가요. 지운 기록은 되돌릴 수 없어요.)`)) return;
+  const rec = records();
+  delete rec[className()];
+  save(REC_KEY, rec);
+  socket.emit('teacher:resetRecords');
+};
 $('new-room').onclick = () => { if (confirm('새 방을 만들면 지금 방 코드는 더 이상 쓰지 않아요. 만들까요?')) createRoom(); };
 
 const MODE_TAG = { team: '👨‍👩‍👧 모둠 미션', duo: '👫 짝 미션' };
@@ -70,20 +78,27 @@ socket.on('room', ({ teams }) => {
   const people = teams.reduce((n, t) => n + t.roster.filter((r) => !r.isTeacher).length, 0);
   $('t-stat').textContent = `접속 학생 ${people}명 · 모둠 ${teams.filter((t) => t.roster.length).length}개`;
 
-  // 카드를 통째로 갈아 끼우면 열려 있던 드롭다운이 닫혀 버리므로, 고르는 중인 카드는 그 자리에 그대로 둠
+  // 1초마다 카드를 새로 만들면 화면이 깜빡이므로, 바뀐 카드만 새로 그리고 시계는 글자만 바꿈
+  // (고르는 중인 드롭다운이 있는 카드는 그대로 둠 — 갈아 끼우면 드롭다운이 닫혀 버림)
   const grid = $('teams');
+  const code = $('code').textContent;
   const cards = teams.map((t) => {
     const prev = grid.querySelector(`.t-team[data-team="${t.team}"]`);
-    if (prev && openSelect.has(t.team)) return prev;
+    const sig = JSON.stringify([{ ...t, time: 0 }, code, openTips.has(t.team)]);
+    if (prev && (openSelect.has(t.team) || prev.dataset.sig === sig)) {
+      const clock = prev.querySelector('.clock');
+      if (clock) clock.textContent = fmt(t.time);
+      return prev;
+    }
     const el = document.createElement('div');
+    el.dataset.sig = sig;
     const n = t.roster.length;
     const students = t.roster.filter((r) => !r.isTeacher).length;
     const hasTeacher = t.roster.some((r) => r.isTeacher);
     el.dataset.team = t.team;
     el.className = `t-team ${n ? t.status : 'empty'}`;
-    const code = $('code').textContent;
     const playingInfo = t.status === 'playing' || t.status === 'result'
-      ? `${t.code} ${t.levelName} · ⏱ ${fmt(t.time)} · 💥 ${t.mistakes}` : `다음: ${levelCode(t.current)} ${t.levelName}`;
+      ? `${t.code} ${t.levelName} · ⏱ <span class="clock">${fmt(t.time)}</span> · 💥 ${t.mistakes}` : `다음: ${levelCode(t.current)} ${t.levelName}`;
     el.innerHTML = `
       <h3><span>${t.team}모둠</span><span class="st">${n ? STATUS[t.status] : '비어 있음'}</span></h3>
       ${n ? `<div class="info"><b>${MODE_TAG[t.mode]}</b> · ${playingInfo}</div>` : ''}
@@ -130,6 +145,7 @@ socket.on('room', ({ teams }) => {
   const total = (t) => t.starsTeam + t.starsDuo;
   const ranked = teams.filter((t) => total(t)).sort((a, b) => total(b) - total(a));
   $('rank').classList.toggle('hidden', !ranked.length);
-  $('rank').innerHTML = '<h2>🏆 별 순위</h2>' + ranked
+  const rankHtml = '<h2>🏆 별 순위</h2>' + ranked
     .map((t, i) => `<div>${['🥇', '🥈', '🥉'][i] || `${i + 1}.`} ${t.team}모둠 — ⭐ ${total(t)}개 (모둠 ${t.starsTeam} · 짝 ${t.starsDuo})</div>`).join('');
+  if ($('rank').innerHTML !== rankHtml) $('rank').innerHTML = rankHtml;
 });

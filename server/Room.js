@@ -95,6 +95,7 @@ export default class Room {
   startTeam(n, level) { const t = this.team(n); if (!t) return; if (level != null) t.setCurrent(level); t.start(); }
   setLevel(n, level) { this.team(n)?.setCurrent(level); }
   unlockAll() { this.teams.forEach((t) => t.unlockAll()); }
+  resetRecords() { this.teams.forEach((t) => t.resetProgress()); }
   lobbyAll() { this.teams.forEach((t) => t.toLobby()); }
 
   // 선생님 브라우저에 저장해 둔 학급 기록 되살리기 { "1": {unlocked, best}, ... }

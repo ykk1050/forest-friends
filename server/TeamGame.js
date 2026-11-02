@@ -134,6 +134,14 @@ export default class TeamGame {
     this.emit('progress', this.progressInfo());
   }
 
+  // 별·기록을 모두 지우고 1-1부터 (게임 중이면 대기실로)
+  resetProgress() {
+    this.progress = { team: emptyProgress(), duo: emptyProgress() };
+    this.current = { team: 0, duo: 0 };
+    if (this.status === 'lobby') this.emit('progress', this.progressInfo());
+    else this.toLobby();
+  }
+
   toLobby() {
     this.status = 'lobby';
     this.result = null;

@@ -51,6 +51,16 @@ test('바구니를 잡고 밀면 잡은 면 방향으로만 밀리고, 동물도
   assert.deepEqual([p.fx, p.fy], [0, 1]);
 });
 
+test('기록 초기화: 별·열린 단계가 지워지고 대기실 1-1로', () => {
+  const { g } = makeGame(3, 4);
+  g.progress.team.best[0] = { stars: 3, time: 10 };
+  g.unlockAll();
+  g.resetProgress();
+  assert.equal(g.status, 'lobby');
+  assert.deepEqual(g.progress.team, { unlocked: 0, best: {} });
+  assert.deepEqual(g.current, { team: 0, duo: 0 });
+});
+
 test('모두 발판을 밟으면 문이 열림', () => {
   const { g, ps, events } = makeGame(3, 2);
   g.plates.forEach((pl, i) => Object.assign(ps[i], { x: pl.x, y: pl.y }));
