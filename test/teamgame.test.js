@@ -175,18 +175,24 @@ test('물살: 바구니를 잡은 친구는 떠내려가지 않음', () => {
   assert.ok(Math.abs(ps[0].y - 360) > 20, '놓으면 떠내려감');
 });
 
-test('바구니·호박을 물(얼음 구멍)로 밀면 빠져서 처음 자리로', () => {
+test('바구니·호박을 물(얼음 구멍)로 밀면 빠져서 빠지기 전 자리로', () => {
   const { g, events } = makeGame(1, LEVELS.findIndex((l) => l.name === '얼음 호수'));
-  const c = g.crate;
-  Object.assign(c, { x: 640, y: 340, vx: 0, vy: -200 });
-  for (let i = 0; i < 20 && !fx(events, 'crateSplash').length; i++) g.moveCrate(0.05);
+  const c = g.crate, w = g.level.water[0], left = w.x - w.w / 2;   // 연못 왼쪽 땅에서 오른쪽으로 밀어 넣기
+  Object.assign(c, { x: left - 110, y: w.y, vx: 0, vy: 0 });
+  g.moveCrate(0.05);
+  assert.deepEqual([c.sx, c.sy], [left - 110, w.y]);
+  c.vx = 200;
+  for (let i = 0; i < 40 && !fx(events, 'crateSplash').length; i++) g.moveCrate(0.05);
   assert.equal(fx(events, 'crateSplash').length, 1);
-  assert.deepEqual([c.x, c.y], [g.level.crate.x, g.level.crate.y]);
-  const pk = { x: 640, y: 330, r: 30, ox: 100, oy: 100 };
+  assert.ok(c.x >= left - 110 && c.x < left && c.y === w.y, `바구니가 ${c.x},${c.y}로 돌아감`);   // 맨 처음 자리가 아닌 연못 바로 앞 땅
+  Object.assign(c, { x: 1200, y: 60 });   // 바구니는 비켜 둠
+  const pk = { x: left - 110, y: w.y, r: 30, sx: 0, sy: 0 };
   g.pumpkins.push(pk);
-  g.movePumpkin(pk, 0, -80);
+  g.movePumpkin(pk, 0, 0);
+  assert.deepEqual([pk.sx, pk.sy], [left - 110, w.y]);
+  for (let i = 0; i < 20 && !fx(events, 'pumpkinSplash').length; i++) g.movePumpkin(pk, 20, 0);
   assert.equal(fx(events, 'pumpkinSplash').length, 1);
-  assert.deepEqual([pk.x, pk.y], [100, 100]);
+  assert.ok(pk.x >= left - 110 && pk.x < left && pk.y === w.y, `호박이 ${pk.x},${pk.y}로 돌아감`);
 });
 
 test('집 건물은 동물·바구니가 못 지나감', () => {

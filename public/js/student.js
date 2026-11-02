@@ -317,8 +317,8 @@ socket.on('fx', (fx) => {
       break;
     }
     case 'boothOpen': Sfx.plate(); say('🔓 암호를 맞혔어요! 오두막 문이 열렸어요', 2500); break;
-    case 'crateSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 바구니가 처음 자리로 돌아갔어요', 3000); break;
-    case 'pumpkinSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 호박이 처음 자리로 돌아갔어요', 3000); break;
+    case 'crateSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 바구니가 물에 빠지기 전 자리로 돌아갔어요', 3000); break;
+    case 'pumpkinSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 호박이 물에 빠지기 전 자리로 돌아갔어요', 3000); break;
     case 'oops': {
       world.poof(fx.x, fx.y, fx.cause);
       const who = roster.find((r) => r.slot === fx.slot);

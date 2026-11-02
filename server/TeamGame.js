@@ -175,8 +175,9 @@ export default class TeamGame {
     const L = this.level;
     this.gateOpen = L.gates.map(() => false);
     this.berries = L.berries.map(() => false);
-    this.crate = { x: L.crate.x, y: L.crate.y, vx: 0, vy: 0, moving: false, grabbers: 0 };
-    this.pumpkins = L.pumpkins.map((p) => ({ ...p, ox: p.x, oy: p.y }));
+    // sx, sy: 마지막으로 안전한 땅 위에 있던 자리 (빠지면 여기로 돌아옴)
+    this.crate = { x: L.crate.x, y: L.crate.y, sx: L.crate.x, sy: L.crate.y, vx: 0, vy: 0, moving: false, grabbers: 0 };
+    this.pumpkins = L.pumpkins.map((p) => ({ ...p, sx: p.x, sy: p.y }));
     this.leverOn = false;
     this.bridgeOn = false;
     this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates) : null));
@@ -303,6 +304,16 @@ export default class TeamGame {
     return [...L.water, ...L.swampCells, ...(this.bridgeOn ? [] : L.bridges)];
   }
   activeStreams() { return this.level.streams.filter((s) => !(s.lever && this.leverOn)); }
+
+  // 물·늪·다리·물결·꾹 발판 문에서 r(+여유)만큼 떨어진 땅 위인지 → 빠졌을 때 돌아올 자리로 기억해도 되는 곳
+  // (맨 처음 자리로 돌려보내면 한 방향 물결·눈덩이로 옮겨 온 물건을 다시 가져올 수 없어 단계가 막힐 수 있음)
+  safeGround(x, y, r) {
+    const L = this.level, m = r + 20;
+    const near = (w) => Math.abs(x - w.x) < w.w / 2 + m && Math.abs(y - w.y) < w.h / 2 + m;
+    const swamps = L.swamps.map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }));
+    const holdDoors = L.gates.filter((g) => g.plates.type === 'hold').map((g) => g.door);
+    return ![...L.water, ...swamps, ...L.bridges, ...L.streams, ...holdDoors].some(near);
+  }
 
   closedDoors() { return this.level.gates.filter((_, i) => !this.gateOpen[i]).map((g) => g.door); }
   // 바구니를 막는 것 (호박 포함). 물·늪 구멍은 막지 않음 → 밀다가 빠지면 처음 자리로
@@ -533,16 +544,17 @@ export default class TeamGame {
       if (!blocked(c.x + s.vx * dt, c.y)) c.x += s.vx * dt;
       if (!blocked(c.x, c.y + s.vy * dt)) c.y += s.vy * dt;
     }
-    // 물(연못)·늪 구멍에 빠지면 바구니가 처음 자리로
+    // 물(연못)·늪 구멍에 빠지면 바구니가 마지막으로 안전했던 자리로
     if (this.water().some((w) => inRect(c.x, c.y, w))) {
       const at = { x: Math.round(c.x), y: Math.round(c.y) };
-      Object.assign(c, { x: this.level.crate.x, y: this.level.crate.y, vx: 0, vy: 0 });
+      Object.assign(c, { x: c.sx, y: c.sy, vx: 0, vy: 0 });
       this.mistakes++;
       this.emit('fx', { type: 'crateSplash', ...at });
       return;
     }
     if (!blocked(c.x + c.vx * dt, c.y)) c.x += c.vx * dt;
     if (!blocked(c.x, c.y + c.vy * dt)) c.y += c.vy * dt;
+    if (this.safeGround(c.x, c.y, half)) { c.sx = c.x; c.sy = c.y; }
   }
 
   // 호박을 (dx,dy)만큼 밀기: 울타리·바구니·맵 끝에 막히면 그만큼만
@@ -554,13 +566,13 @@ export default class TeamGame {
       !solids.some((s) => circleRectPush(x, y, pk.r * 0.8, s));
     if (free(pk.x + dx, pk.y)) pk.x += dx;
     if (free(pk.x, pk.y + dy)) pk.y += dy;
-    // 물·늪 구멍에 빠지면 처음 자리로
+    // 물·늪 구멍에 빠지면 마지막으로 안전했던 자리로
     if (this.water().some((w) => inRect(pk.x, pk.y, w))) {
       const at = { x: Math.round(pk.x), y: Math.round(pk.y) };
-      pk.x = pk.ox; pk.y = pk.oy;
+      pk.x = pk.sx; pk.y = pk.sy;
       this.mistakes++;
       this.emit('fx', { type: 'pumpkinSplash', ...at });
-    }
+    } else if (this.safeGround(pk.x, pk.y, pk.r)) { pk.sx = pk.x; pk.sy = pk.y; }
   }
 
   finishLevel() {
