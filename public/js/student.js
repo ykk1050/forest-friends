@@ -1,7 +1,7 @@
 import World3D from './World3D.js';
 import Controls from './Controls.js';
 import { Sfx } from './sfx.js';
-import { TEAM_COUNT, TEAM_RECOMMENDED, ANIMALS, TEACHER_ANIMAL, WORLDS } from '/shared/constants.js';
+import { TEAM_COUNT, TEAM_RECOMMENDED, ANIMALS, TEACHER_ANIMAL, WORLDS, MAP_GROUPS } from '/shared/constants.js';
 import { MODES, levelsOf, levelCode } from '/shared/missions.js';
 import Minimap from './Minimap.js';
 import { SYMBOLS } from '/shared/levelkit.js';
@@ -166,11 +166,11 @@ function renderModeLine() {
 function renderMap() {
   const levels = levelsOf(progress.mode);
   renderModeLine();
-  $('map').replaceChildren(...WORLDS.map((w, wi) => {
+  $('map').replaceChildren(...MAP_GROUPS.filter((_, wi) => wi * 6 < levels.length).map((w, wi) => {
     const box = document.createElement('div');
     box.className = 'world';
     box.innerHTML = `<h4>${w.emoji} ${w.name}</h4><div class="lv"></div>`;
-    for (let k = 0; k < 6; k++) {
+    for (let k = 0; k < 6 && wi * 6 + k < levels.length; k++) {
       const i = wi * 6 + k;
       const best = progress.best?.[i];
       const el = document.createElement('div');

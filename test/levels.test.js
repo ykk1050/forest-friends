@@ -8,7 +8,7 @@ import { FIELD } from '../shared/constants.js';
 const SIZES = { team: [1, 3, 5, 6], duo: [2, 3] };
 
 for (const [mode, { name, levels }] of Object.entries(MODES)) {
-  test(`${name}은 36단계 (마을 6개)`, () => assert.equal(levels.length, 36));
+  test(`${name}은 48단계 (마을 8개)`, () => assert.equal(levels.length, 48));
 
   levels.forEach((lv, i) => {
     test(`${name} ${levelCode(i)} ${lv.name}: ${SIZES[mode].join('·')}명 모두 풀 수 있음`, () => {

@@ -16,15 +16,25 @@ const fx = (events, type) => events.filter(([e, d]) => e === 'fx' && d.type === 
 
 test('수수께끼 숲은 모둠·짝 모두 6단계, 2명 이상', () => {
   for (const mode of ['team', 'duo']) {
-    const lv = levelsOf(mode).filter((l) => l.world === 5);
+    const lv = levelsOf(mode).slice(0, 36).filter((l) => l.world === 5);
     assert.equal(lv.length, 6);
     assert.ok(lv.every((l) => l.minPlayers === 2));
   }
 });
 
+test('물안개 호수·비밀 섬 12단계는 맨 뒤(7-1~8-6)에, 2명 이상, 모둠·짝 같은 장소', () => {
+  const team = levelsOf('team').slice(36), duo = levelsOf('duo').slice(36);
+  assert.equal(team.length, 12);
+  assert.ok([...team, ...duo].every((l) => l.minPlayers === 2));
+  assert.deepEqual(duo.map((l) => l.name.replace(' 둘이서', '')), team.map((l) => l.name));
+  // 물·늪·다리·망루를 골고루 씀
+  assert.ok(team.filter((l) => l.bridges.length).length >= 4);
+  assert.ok(team.filter((l) => l.swamps.length).length >= 4);
+});
+
 test('수수께끼 숲 6단계는 순서대로, 앞 단계들 사이에 섞여 나옴 (처음 3단계·연달아는 없음)', () => {
   for (const mode of ['team', 'duo']) {
-    const at = levelsOf(mode).map((l, i) => (l.world === 5 ? i : -1)).filter((i) => i >= 0);
+    const at = levelsOf(mode).slice(0, 36).map((l, i) => (l.world === 5 ? i : -1)).filter((i) => i >= 0);
     assert.deepEqual(at, PUZZLE_SLOTS);
     assert.ok(at[0] >= 3 && at.at(-1) < 35);
     assert.ok(at.every((v, i) => i === 0 || v - at[i - 1] > 1));

@@ -57,7 +57,7 @@ setInterval(() => fetch('/health', { cache: 'no-store' }).catch(() => {}), 5 * 6
 
 $('start-all').onclick = () => socket.emit('teacher:startAll');
 $('lobby-all').onclick = () => { if (confirm('모든 모둠을 대기실로 보낼까요? (별·기록은 그대로예요)')) socket.emit('teacher:lobby'); };
-$('unlock-all').onclick = () => { if (confirm('모든 모둠이 36단계 모두를 고를 수 있게 열까요?')) socket.emit('teacher:unlockAll'); };
+$('unlock-all').onclick = () => { if (confirm(`모든 모둠이 ${levelsOf('team').length}단계 모두를 고를 수 있게 열까요?`)) socket.emit('teacher:unlockAll'); };
 $('reset-records').onclick = () => {
   if (!confirm(`'${className()}' 학급의 모든 모둠 별·기록을 지우고 1-1부터 다시 시작할까요?
 (게임 중인 모둠은 대기실로 돌아가요. 지운 기록은 되돌릴 수 없어요.)`)) return;

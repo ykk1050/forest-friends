@@ -3,11 +3,12 @@
 //  2) 망루 늪 길: 2칸 너비 징검다리 길을 새로 만들고, 풀 수 있는지 바로 검사
 //  3) 딸기 자리: 걸어서 갈 수 있는 곳 중 서로 떨어진 3곳을 새로 고름
 //  4) 장애물 타이밍: 꿀벌·통나무·눈덩이 출발 시점과 빠르기(±15%)를 바꿈
+//  5) 물건 자리 흔들기: 출발점·바구니·레버·망루·발판·가시덤불·떨어진 연못을 조금씩 옮기고, 풀 수 있는지 바로 검사
 import { FIELD } from './constants.js';
 import { TILE, swampCells } from './levelkit.js';
 import { analyzeLevel } from './solver.js';
 import { buildGrid, findPath, placeHouse, CELL, COLS, ROWS } from './grid.js';
-import { circleRectPush, homeRect } from './geometry.js';
+import { circleRectPush, homeRect, rectsOverlap, thornRect } from './geometry.js';
 
 // 같은 seed면 같은 결과 (시험할 때 다시 만들 수 있게)
 export function rng(seed) {
@@ -123,12 +124,51 @@ function randomBerries(L, rand) {
   return picks.length === 3 ? picks : L.berries;
 }
 
+// ---------- 5) 물건 자리 흔들기 ----------
+// 울타리·물·늪·물결·다리·문·오두막·집과 겹치지 않을 때만 옮김. 호박은 통나무·눈덩이 타이밍이 설계라 그대로
+function jitterLevel(L, rand) {
+  const d = (a) => Math.round((rand() * 2 - 1) * a);
+  const swampBoxes = L.swamps.map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }));
+  const booths = L.gates.filter((g) => g.plates.booth).map((g) => ({ ...g.plates.booth.room, w: g.plates.booth.room.w + 140, h: g.plates.booth.room.h + 140 }));
+  // 물웅덩이는 맵 끝·다리·물결에 붙지 않은 '떨어진 연못'만 옮김 (강·다리 짝이 어긋나지 않게)
+  const loose = (w) => w.x - w.w / 2 > 20 && w.x + w.w / 2 < FIELD.w - 20 && w.y - w.h / 2 > 20 && w.y + w.h / 2 < FIELD.h - 20 &&
+    ![...L.bridges, ...L.streams].some((b) => rectsOverlap({ ...w, w: w.w + 8, h: w.h + 8 }, b));
+  const water = L.water.map((w) => (loose(w) ? { ...w, x: w.x + d(30), y: w.y + d(30) } : w));
+  const solid = [...L.walls, ...water, ...L.streams, ...L.bridges, ...swampBoxes, ...booths, ...L.gates.map((g) => g.door), homeRect(L.home)];
+  const clear = (p, r, extra = []) => p.x - r > 0 && p.x + r < FIELD.w && p.y - r > 0 && p.y + r < FIELD.h &&
+    ![...solid, ...extra].some((s) => rectsOverlap({ x: p.x, y: p.y, w: r * 2, h: r * 2 }, s));
+  const move = (p, a, r, extra) => {
+    const q = { ...p, x: p.x + d(a), y: p.y + d(a) };
+    return clear(q, r, extra) ? q : p;
+  };
+  const thorns = L.thorns.map((t) => move(t, 25, t.r));
+  const hard = [...thorns.map(thornRect), ...L.pumpkins.map((p) => ({ x: p.x, y: p.y, w: p.r * 2 + 40, h: p.r * 2 + 40 }))];
+  const crate = move(L.crate, 50, 70, hard);
+  const start = move(L.start, 40, 30, [...hard, { x: crate.x, y: crate.y, w: 160, h: 160 }]);
+  return {
+    ...L, water, thorns, start, crate,
+    levers: L.levers.map((p) => move(p, 40, 30, hard)),
+    lookouts: L.lookouts.map((p) => move(p, 40, 30, hard)),
+    gates: L.gates.map((g) => {
+      if (g.plates.type === 'team') return { ...g, plates: { ...g.plates, at: g.plates.at.map((p) => move(p, 30, 35, hard)) } };
+      if (g.plates.type === 'crate') return { ...g, plates: { ...g.plates, ...move({ x: g.plates.x, y: g.plates.y }, 30, 70, hard) } };
+      return g;
+    })
+  };
+}
+
 // ---------- 모두 합치기 ----------
 // n: 모둠 인원(풀 수 있는지 검사에 씀), seed: 무작위 씨앗
 export function makeVariant(base, n, seed = Date.now()) {
   const rand = rng(seed);
   let L = mirrorLevel(base, rand() < 0.5, rand() < 0.5);
   L = { ...L, variant: { seed } };
+
+  for (let tries = 0; tries < 10; tries++) {
+    const j = jitterLevel(L, rand);
+    const cand = { ...j, house: placeHouse(j) };
+    if (analyzeLevel(cand, Math.max(n, cand.minPlayers || 1)).ok) { L = cand; break; }
+  }
 
   if (L.swamps.length) {
     for (let tries = 0; tries < 12; tries++) {
