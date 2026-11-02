@@ -5,7 +5,7 @@ import { RULES, ANIMALS, TEACHER_ANIMAL } from '/shared/constants.js';
 import {
   THEMES, groundTexture, emojiTexture, makeTree, makeFlower, makeRock, makeHouse, makeCrate,
   makeBee, makeSnowball, makeLog, makeThorn, makeStrawberry, makeFloorPatch, makePumpkin,
-  makeTower, makeSign, makeLever, makeBridge
+  makeTower, makeSign, makeLever, makeBridge, makeDam
 } from './props.js';
 
 // 서버 좌표(가로 1280 × 세로 720) → 3D 바닥 좌표(가로 32 × 세로 18)
@@ -247,7 +247,19 @@ export default class World3D {
       arrows.rotation.x = -Math.PI / 2;
       arrows.position.set(wx(r.x), 0.04, wz(r.y));
       g.add(arrows);
-      return { tex, arrows, lever: !!r.lever, v: { x: r.vx * (r.strong ? 1.6 : 1), y: r.vy * (r.strong ? 1.6 : 1) }, size: { w: r.w * S / 1.5, h: r.h * S / 1.5 } };
+      // 레버 물살: 물이 들어오는 쪽 끝에 제방(평소엔 바닥 아래에 숨어 있음)
+      let dam = null;
+      if (r.lever) {
+        const alongX = Math.abs(r.vx) > Math.abs(r.vy);   // 물살이 가로로 흐르면 제방은 세로로 섬
+        dam = makeDam((alongX ? r.h : r.w) * S, alongX);
+        const ux = alongX ? Math.sign(r.vx) : 0, uy = alongX ? 0 : Math.sign(r.vy);
+        const back = (alongX ? r.w : r.h) / 2 - 30;
+        dam.position.set(wx(r.x - ux * back), 0, wz(r.y - uy * back));
+        dam.userData.body.scale.y = 0.001;
+        dam.visible = false;
+        g.add(dam);
+      }
+      return { tex, arrows, dam, lever: !!r.lever, v: { x: r.vx * (r.strong ? 1.6 : 1), y: r.vy * (r.strong ? 1.6 : 1) }, size: { w: r.w * S / 1.5, h: r.h * S / 1.5 } };
     });
 
     // ---- 수수께끼 숲 ----
@@ -539,6 +551,10 @@ export default class World3D {
       m.target = t;
     });
     (this.berries || []).forEach((b, i) => { if (s.b[i] && b.visible) { b.visible = false; this.sparkle(b.position); } });
+    if (!!s.lv !== this.leverOn) {
+      // 제방이 솟거나 가라앉을 때 물보라
+      (this.streams || []).forEach((st) => { if (st.dam) this.splash(st.dam.position); });
+    }
     this.leverOn = !!s.lv; this.bridgeOn = !!s.br;
     (this.streams || []).forEach((st) => { st.arrows.visible = !(st.lever && this.leverOn); });
     (this.codeGates || []).forEach((cg, i) => {
@@ -569,6 +585,14 @@ export default class World3D {
   addParticle(obj, v, life, opts = {}) {
     this.scene.add(obj);
     this.effects.push({ obj, v, life, max: life, ...opts });
+  }
+
+  splash(at) {
+    for (let i = 0; i < (this.low ? 8 : 16); i++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: i % 3 ? 0x4fc3f7 : 0xe1f5fe, transparent: true }));
+      m.position.set(at.x + (Math.random() - 0.5) * 2.5, 0.3, at.z + (Math.random() - 0.5) * 0.8);
+      this.addParticle(m, new THREE.Vector3((Math.random() - 0.5) * 3, 3 + Math.random() * 3, (Math.random() - 0.5) * 3), 0.9, {});
+    }
   }
 
   poof(x, y, cause) {
@@ -671,7 +695,18 @@ export default class World3D {
       const d = p.obj.position.clone().sub(prev);
       p.obj.userData.roll.rotation.z -= d.x * 1.5; p.obj.userData.roll.rotation.x += d.z * 1.5;
     });
-    (this.streams || []).forEach((s) => { s.tex.offset.x -= s.v.x * S * dt / 1.5; s.tex.offset.y += s.v.y * S * dt / 1.5; });
+    (this.streams || []).forEach((s) => {
+      s.tex.offset.x -= s.v.x * S * dt / 1.5; s.tex.offset.y += s.v.y * S * dt / 1.5;
+      if (!s.dam) return;
+      // 제방: 레버를 당기면 바닥에서 쑥 솟아(살짝 튀어 오름), 놓으면 천천히 가라앉음 (물 밑이 비치므로 땅 밑으로 숨기지 않고 높이를 줄임)
+      const body = s.dam.userData.body, up = s.lever && this.leverOn;
+      const goal = up ? 1 : 0;
+      body.userData.v = (body.userData.v || 0) + ((goal - body.scale.y) * (up ? 90 : 30) - (body.userData.v || 0) * (up ? 9 : 10)) * dt;
+      body.scale.y = Math.max(0.001, body.scale.y + body.userData.v * dt);
+      if (!up && body.scale.y < 0.02) { body.scale.y = 0.001; body.userData.v = 0; }
+      body.position.x = up && body.scale.y < 0.95 ? Math.sin(t * 60) * 0.03 : 0;   // 솟는 동안 덜덜
+      s.dam.visible = body.scale.y > 0.01;
+    });
 
     this.effects = this.effects.filter((e) => {
       e.life -= dt;

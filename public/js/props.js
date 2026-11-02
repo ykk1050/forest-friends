@@ -324,6 +324,26 @@ export function makeLever() {
   return g;
 }
 
+// 제방: 물살을 가로질러 막는 돌·흙 둑 (across = 물살을 가로지르는 길이, 바닥 아래에서 솟아오름)
+export function makeDam(across, alongX) {
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  const thick = 0.7, h = 1.1;
+  body.add(mesh(new THREE.BoxGeometry(alongX ? thick : across, h, alongX ? across : thick), toon(0x8d6e63), 0, h / 2, 0));
+  body.add(mesh(new THREE.BoxGeometry(alongX ? thick + 0.12 : across + 0.1, 0.16, alongX ? across + 0.1 : thick + 0.12), toon(0x6d4c41), 0, h, 0));
+  const n = Math.max(3, Math.round(across / 0.55));
+  for (let i = 0; i < n; i++) {
+    const t = (-0.5 + (i + 0.5) / n) * across;
+    const r = 0.2 + ((i * 37) % 5) * 0.03;
+    const rock = mesh(new THREE.DodecahedronGeometry(r, 0), toon(i % 2 ? 0x9e9e9e : 0xbdbdbd), alongX ? 0 : t, h + 0.1, alongX ? t : 0);
+    rock.rotation.set(i, i * 2, 0);
+    body.add(rock);
+  }
+  g.add(body);
+  g.userData.body = body;
+  return g;
+}
+
 export function makeBridge(w, d) {
   const g = new THREE.Group();
   const along = w < d;   // 다리가 놓이는 방향: 긴 쪽으로 건넘

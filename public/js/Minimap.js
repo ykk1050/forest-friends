@@ -1,4 +1,4 @@
-// 따라가기 카메라일 때 왼쪽 위에 보이는 작은 지도 (맵 전체 + 내가 보는 방향)
+// 따라가기 카메라일 때 왼쪽 위에 보이는 작은 지도 (맵 전체 + 화면이 보는 쪽 부채꼴 + 동물이 바라보는 쪽 화살촉)
 const W = 1280, H = 720;
 
 export default class Minimap {
@@ -28,7 +28,14 @@ export default class Minimap {
 
     info.ice.forEach((r) => rect(r, '#dff6ff'));
     info.mud.forEach((r) => rect(r, '#7a5236'));
-    info.streams.forEach((r) => rect(r, '#8fd8ff'));
+    info.streams.forEach((r) => {
+      rect(r, r.lever && s.lv ? '#cfeffd' : '#8fd8ff');
+      if (!r.lever || !s.lv) return;
+      // 솟아오른 제방 (물이 들어오는 쪽 끝)
+      const alongX = Math.abs(r.vx) > Math.abs(r.vy), back = (alongX ? r.w : r.h) / 2 - 30;
+      const x = r.x - (alongX ? Math.sign(r.vx) * back : 0), y = r.y - (alongX ? 0 : Math.sign(r.vy) * back);
+      rect({ x, y, w: alongX ? 28 : r.w, h: alongX ? r.h : 28 }, '#8d6e63');
+    });
     info.water.forEach((r) => rect(r, '#2f9ee8'));
     (info.swamps || []).forEach((sw) => {
       rect({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }, '#4a3f63');
@@ -55,15 +62,27 @@ export default class Minimap {
     s.mv.forEach(([x, y], i) => dot(x, y, info.movers[i].kind === 'bee' ? 24 : 32, info.movers[i].kind === 'bee' ? '#ffd600' : '#fff'));
     rect({ x: s.c[0], y: s.c[1], w: 80, h: 80 }, '#a0522d');
 
-    for (const [slot, x, y] of s.p) {
+    // 동물이 바라보는 쪽을 가리키는 화살촉
+    const arrow = (x, y, fx, fy, r, color) => {
+      const a = Math.atan2(fy, fx), tip = r + 34;
+      g.beginPath();
+      g.moveTo(x + Math.cos(a) * tip, y + Math.sin(a) * tip);
+      g.lineTo(x + Math.cos(a + 0.6) * r, y + Math.sin(a + 0.6) * r);
+      g.lineTo(x + Math.cos(a - 0.6) * r, y + Math.sin(a - 0.6) * r);
+      g.closePath(); g.fillStyle = color; g.fill();
+      g.lineWidth = 6; g.strokeStyle = '#fff'; g.stroke();
+    };
+    for (const [slot, x, y, fx, fy] of s.p) {
       const pl = players.find((r) => r.slot === slot);
+      const r = slot === mySlot ? 34 : 26;
       if (slot === mySlot) {
-        // 내가 보는 방향 부채꼴
+        // 화면(카메라)이 보는 쪽 부채꼴
         g.beginPath(); g.moveTo(x, y);
         g.arc(x, y, 190, yaw - 0.55, yaw + 0.55); g.closePath();
         g.fillStyle = 'rgba(255,255,255,.35)'; g.fill();
-        dot(x, y, 34, pl?.color || '#fff', 12);
-      } else dot(x, y, 26, pl?.color || '#fff');
+      }
+      if (fx || fy) arrow(x, y, fx, fy, r, pl?.color || '#fff');
+      dot(x, y, r, pl?.color || '#fff', slot === mySlot ? 12 : 0);
     }
     g.lineWidth = 10; g.strokeStyle = '#fff'; g.strokeRect(0, 0, W, H);
   }

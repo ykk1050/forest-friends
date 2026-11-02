@@ -314,9 +314,9 @@ export default class TeamGame {
     const L = this.level;
     const players = [...this.players.values()];
 
-    // 0) 레버: 누군가 레버 위에 서 있으면 다리가 놓이고 레버 물살이 멈춤 (다리 위에 누가 있으면 다리는 그대로)
+    // 0) 레버: 누군가 레버 앞에서 잡기를 누르고 있으면 다리가 놓이고 레버 물살이 멈춤 (다리 위에 누가 있으면 다리는 그대로)
     const wasLever = this.leverOn;
-    this.leverOn = L.levers.some((lv) => players.some((p) => Math.hypot(p.x - lv.x, p.y - lv.y) < RULES.leverR));
+    this.leverOn = L.levers.some((lv) => players.some((p) => p.inp.a && Math.hypot(p.x - lv.x, p.y - lv.y) < RULES.leverR));
     if (this.leverOn !== wasLever) this.emit('fx', { type: this.leverOn ? 'leverOn' : 'leverOff' });
     const cNow = { x: this.crate.x, y: this.crate.y, w: RULES.crateHalf * 2, h: RULES.crateHalf * 2 };
     const onBridge = L.bridges.some((b) => rectsOverlap(cNow, b) || players.some((p) => inRect(p.x, p.y, b)));

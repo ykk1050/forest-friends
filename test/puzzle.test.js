@@ -119,16 +119,19 @@ test('그림 암호는 도전할 때마다 바뀜', () => {
   assert.ok(seen.size > 1);
 });
 
-test('레버: 서 있는 동안만 다리, 다리 위에 누가 있으면 안 사라짐', () => {
+test('레버: 잡기를 누르고 있는 동안만 다리, 다리 위에 누가 있으면 안 사라짐', () => {
   const { g, ps } = makeGame(3, 2);
   const lv = g.level.levers[0], br = g.level.bridges[0];
   run(g, 0.05);
   assert.equal(g.bridgeOn, false);
   Object.assign(ps[0], { x: lv.x, y: lv.y });
   run(g, 0.05);
+  assert.equal(g.bridgeOn, false, '다가가기만 해서는 안 당겨짐');
+  g.setInput('p0', { x: 0, y: 0, a: true });
+  run(g, 0.05);
   assert.equal(g.bridgeOn, true);
   Object.assign(ps[1], { x: br.x, y: br.y });   // 다리 위
-  Object.assign(ps[0], { x: 150, y: 600 });     // 레버에서 내려옴
+  g.setInput('p0', { x: 0, y: 0, a: false });   // 레버를 놓음
   run(g, 0.1);
   assert.equal(g.bridgeOn, true, '다리 위 친구가 빠지지 않게');
   assert.equal(g.mistakes, 0);
@@ -147,6 +150,7 @@ test('센 물살: 바구니가 떠내려가 연못에 빠지면 처음 자리로
   assert.equal(g.crate.x, g.level.crate.x);
   const lv = g.level.levers[0];
   Object.assign(ps[0], { x: lv.x, y: lv.y });
+  g.setInput('p0', { x: 0, y: 0, a: true });
   Object.assign(g.crate, { x: st.x, y: 360 });
   run(g, 2);
   assert.equal(Math.round(g.crate.y), 360, '레버를 잡고 있으면 물살이 멈춤');
