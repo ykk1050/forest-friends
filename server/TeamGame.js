@@ -77,7 +77,7 @@ export default class TeamGame {
     if (!p) return;
     p.connected = on;
     if (!on) p.inp = { x: 0, y: 0, a: false };
-    this.emit('roster', this.roster());
+    this.rosterChanged();   // 발판 수도 연결된 친구 수에 맞춰 다시 깔기
   }
 
   setInput(pid, inp) {
@@ -191,8 +191,9 @@ export default class TeamGame {
     });
   }
 
+  // 모둠 발판 수 = 지금 연결된 친구 수 (끊긴 친구 몫의 발판 때문에 문이 안 열리는 일이 없도록)
   buildPlates() {
-    const sorted = [...this.players.values()].sort((a, b) => a.slot - b.slot);
+    const sorted = [...this.players.values()].filter((p) => p.connected).sort((a, b) => a.slot - b.slot);
     const n = Math.max(1, sorted.length);
     this.plates = [];
     this.level.gates.forEach((g, gi) => {

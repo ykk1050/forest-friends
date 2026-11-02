@@ -145,6 +145,18 @@ test('도중에 한 명이 나가면 발판 수가 줄어듦', () => {
   assert.equal(g.plates.length, 3);
 });
 
+test('도중에 한 명이 끊기면 발판 수가 줄고, 돌아오면 다시 늘어남', () => {
+  const { g, ps, events } = makeGame(3, 2);
+  g.setConnected('p2', false);
+  assert.equal(g.plates.length, 2);
+  g.plates.forEach((pl, i) => Object.assign(ps[i], { x: pl.x, y: pl.y }));
+  run(g, 0.1);
+  assert.equal(g.gateOpen[0], true);
+  assert.ok(events.some(([e]) => e === 'level'));
+  g.setConnected('p2', true);
+  assert.equal(g.plates.length, 3);
+});
+
 test('물살: 바구니를 잡은 친구는 떠내려가지 않음', () => {
   const { g, ps } = makeGame(1, 7);
   const s = g.level.streams[0];
