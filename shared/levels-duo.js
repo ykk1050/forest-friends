@@ -3,7 +3,7 @@
 //  - 호박: 친구들은 못 밀지만 굴러오는 통나무·눈덩이에 밀려남. 꾹 발판 위로 밀려 가면 문을 계속 열어 줌
 //  - 바구니 무게: 1 = 혼자 밀 수 있음, 3 = 둘이 함께 밀어야 함
 // 각 단계는 test/levels.test.js 가 길찾기로, test/pumpkin.test.js 가 호박 움직임을 자동 검사합니다.
-import { vwall, hwall, gateV, team, cratePlate, hold, pumpkin, bee, snowball, log, ring, L } from './levelkit.js';
+import { vwall, hwall, gateV, team, cratePlate, hold, pumpkin, bee, snowball, rock, log, ring, L } from './levelkit.js';
 import { R } from './geometry.js';
 
 // pumpkinHolds: 호박이 밀려와 꾹 발판을 눌러 주는 문 번호 (자동 검사에서 '열린다'고 봄)
@@ -163,7 +163,7 @@ export const DUO_LEVELS = [
     start: { x: 150, y: 200 }, crate: { x: 200, y: 530, weight: 1 }, home: { x: 1140, y: 360 },
     gateDefs: [gateV(380, 285, 435, team([190, 110], [190, 630])), gateV(680, 285, 435, cratePlate(530, 590)),
       gateV(980, 285, 435, hold([830, 600], [1130, 140]))],
-    movers: [bee([[530, 110], [530, 420]], 110), snowball([[830, 230], [830, 490]], 120)],
+    movers: [bee([[530, 110], [530, 420]], 110), rock([[830, 230], [830, 490]], 120)],
     berries: [[100, 640], [530, 360], [1140, 620]] }),
   D({ world: 4, name: '둘이 함께 영차영차', tip: '무거운 바구니를 물과 가시덤불 사이로 조심조심!',
     crate: { x: 250, y: 360, weight: 3 },
@@ -175,7 +175,7 @@ export const DUO_LEVELS = [
     start: { x: 150, y: 560 }, crate: { x: 220, y: 200, weight: 1 },
     walls: [...vwall(420, [470, 720]), ...vwall(760, [0, 250])],
     mud: [R(435, 260, 745, 720)],
-    movers: [bee([[590, 120], [590, 420]], 120), snowball([[880, 620], [880, 300]], 120)],
+    movers: [bee([[590, 120], [590, 420]], 120), rock([[880, 620], [880, 300]], 120)],
     gateDefs: [gateV(1010, 285, 435, hold([920, 140], [1120, 140]))],
     berries: [[100, 120], [590, 300], [1150, 620]] }),
   D({ world: 4, name: '마지막 대작전 둘이서', tip: '문 세 개와 무거운 바구니! 통나무가 호박을 꾹 발판에 올려 줄 거예요.',

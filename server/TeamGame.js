@@ -2,6 +2,7 @@ import { RULES, FIELD, COLORS, COLOR_NAMES, ANIMALS, TEAM_MAX } from '../shared/
 import { levelsOf, modeFor, levelCode, ORDER_VERSION, fromOldIndex } from '../shared/missions.js';
 import { analyzeLevel, crateNeed } from '../shared/solver.js';
 import { makeVariant } from '../shared/variant.js';
+import { buildGrid, findPath } from '../shared/grid.js';
 import {
   hazardPos, teamPlatePositions, circleRectPush, rectsOverlap, inRect, distToRect, clamp, homeRect, thornRect
 } from '../shared/geometry.js';
@@ -177,7 +178,7 @@ export default class TeamGame {
     this.berries = L.berries.map(() => false);
     // sx, sy: 마지막으로 안전한 땅 위에 있던 자리 (빠지면 여기로 돌아옴)
     this.crate = { x: L.crate.x, y: L.crate.y, sx: L.crate.x, sy: L.crate.y, vx: 0, vy: 0, moving: false, grabbers: 0 };
-    this.pumpkins = L.pumpkins.map((p) => ({ ...p, sx: p.x, sy: p.y }));
+    this.pumpkins = L.pumpkins.map((p) => ({ ...p, ox: p.x, oy: p.y, sx: p.x, sy: p.y }));
     this.leverOn = false;
     this.bridgeOn = false;
     this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates) : null));
@@ -306,13 +307,30 @@ export default class TeamGame {
   activeStreams() { return this.level.streams.filter((s) => !(s.lever && this.leverOn)); }
 
   // 물·늪·다리·물결·꾹 발판 문에서 r(+여유)만큼 떨어진 땅 위인지 → 빠졌을 때 돌아올 자리로 기억해도 되는 곳
-  // (맨 처음 자리로 돌려보내면 한 방향 물결·눈덩이로 옮겨 온 물건을 다시 가져올 수 없어 단계가 막힐 수 있음)
   safeGround(x, y, r) {
     const L = this.level, m = r + 20;
     const near = (w) => Math.abs(x - w.x) < w.w / 2 + m && Math.abs(y - w.y) < w.h / 2 + m;
     const swamps = L.swamps.map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }));
     const holdDoors = L.gates.filter((g) => g.plates.type === 'hold').map((g) => g.door);
     return ![...L.water, ...swamps, ...L.bridges, ...L.streams, ...holdDoors].some(near);
+  }
+
+  // 빠진 물건이 돌아갈 자리: 처음 자리와 땅으로 이어져 있으면 처음 자리로.
+  // 레버 다리·꾹 발판 문·안개 늪·센 물살·닫힌 문 너머로 옮겨 온 물건만 빠지기 전 땅으로 (다시 가져오다 단계가 막히지 않게)
+  fallBack(origin, safe) {
+    const L = this.level;
+    const open = L.gates.map((g, i) => g.plates.type !== 'hold' && this.gateOpen[i]);
+    const swamps = L.swamps.map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }));
+    const grid = buildGrid(L, open, 'crate', { bridges: false, extra: [...swamps, ...L.streams.filter((s) => s.strong)] });
+    const path = findPath(grid, safe, origin);
+    const joined = path && Math.hypot(path.at(-1).x - origin.x, path.at(-1).y - origin.y) <= 60;
+    return { ...(joined ? origin : safe), back: joined ? 'start' : 'safe' };
+  }
+  // 물이 아닌 구멍(안개 늪의 빠지는 칸·얼음판 구멍)인지
+  isHole(x, y) {
+    const L = this.level;
+    return L.swampCells.some((w) => inRect(x, y, w)) ||
+      L.water.some((w) => inRect(x, y, w) && L.ice.some((r) => rectsOverlap(w, r)));
   }
 
   closedDoors() { return this.level.gates.filter((_, i) => !this.gateOpen[i]).map((g) => g.door); }
@@ -387,6 +405,7 @@ export default class TeamGame {
       }
     }
     if (!c.moving) { c.vx = 0; c.vy = 0; }
+    const crateWas = { x: c.x, y: c.y };
     this.moveCrate(dt);
 
     // 3) 움직이는 장애물 → 호박을 밀어냄 (통나무·눈덩이만, 꿀벌은 날아다녀서 못 밂)
@@ -420,18 +439,24 @@ export default class TeamGame {
         if (inRect(p.x, p.y, s) && (s.strong || !grabbers.includes(p))) { p.x += s.vx * dt; p.y += s.vy * dt; }
       }
       for (let it = 0; it < 2; it++) {
-        for (const r of [...solids, crateNow, ...this.boothDoorsFor(p)]) {
-          const push = circleRectPush(p.x, p.y, RULES.playerR, r);
-          if (push) { p.x += push.x; p.y += push.y; }
-        }
+        const push = circleRectPush(p.x, p.y, RULES.playerR, crateNow);
+        if (push) { p.x += push.x; p.y += push.y; }
         for (const pk of this.pumpkins) {
           const dx = p.x - pk.x, dy = p.y - pk.y, d = Math.hypot(dx, dy) || 1, over = pk.r + RULES.playerR - d;
           if (over > 0) { p.x += (dx / d) * over; p.y += (dy / d) * over; }
+        }
+        // 벽을 맨 나중에 → 바구니·호박에 밀려도 벽을 뚫고 나가지 않음
+        for (const r of [...solids, ...this.boothDoorsFor(p)]) {
+          const out = circleRectPush(p.x, p.y, RULES.playerR, r);
+          if (out) { p.x += out.x; p.y += out.y; }
         }
         p.x = clamp(p.x, RULES.playerR, FIELD.w - RULES.playerR);
         p.y = clamp(p.y, RULES.playerR, FIELD.h - RULES.playerR);
       }
     }
+    // 바구니와 벽 사이에 낀 친구가 있으면 바구니가 더 못 감 (물에 빠져 멀리 돌아간 때는 빼고)
+    if (Math.hypot(c.x - crateWas.x, c.y - crateWas.y) < 40 &&
+      players.some((p) => circleRectPush(p.x, p.y, RULES.playerR - 4, crateNow))) Object.assign(c, crateWas);
 
     this.stepBooths(players);
 
@@ -440,7 +465,7 @@ export default class TeamGame {
       if (now < p.safeUntil) continue;
       let cause = null;
       if (L.swampCells.some((w) => inRect(p.x, p.y, w))) cause = 'swamp';
-      else if (this.water().some((w) => inRect(p.x, p.y, w))) cause = 'water';
+      else if (this.water().some((w) => inRect(p.x, p.y, w))) cause = this.isHole(p.x, p.y) ? 'hole' : 'water';
       else if (L.thorns.some((t) => Math.hypot(p.x - t.x, p.y - t.y) < t.r + RULES.playerR * 0.6)) cause = 'thorn';
       else {
         for (const { m, pos } of movers) {
@@ -544,12 +569,13 @@ export default class TeamGame {
       if (!blocked(c.x + s.vx * dt, c.y)) c.x += s.vx * dt;
       if (!blocked(c.x, c.y + s.vy * dt)) c.y += s.vy * dt;
     }
-    // 물(연못)·늪 구멍에 빠지면 바구니가 마지막으로 안전했던 자리로
+    // 물(연못)·늪 구멍에 빠지면 처음 자리나 마지막으로 안전했던 자리로
     if (this.water().some((w) => inRect(c.x, c.y, w))) {
-      const at = { x: Math.round(c.x), y: Math.round(c.y) };
-      Object.assign(c, { x: c.sx, y: c.sy, vx: 0, vy: 0 });
+      const at = { x: Math.round(c.x), y: Math.round(c.y), hole: this.isHole(c.x, c.y) };
+      const to = this.fallBack({ x: this.level.crate.x, y: this.level.crate.y }, { x: c.sx, y: c.sy });
+      Object.assign(c, { x: to.x, y: to.y, sx: to.x, sy: to.y, vx: 0, vy: 0 });
       this.mistakes++;
-      this.emit('fx', { type: 'crateSplash', ...at });
+      this.emit('fx', { type: 'crateSplash', ...at, back: to.back });
       return;
     }
     if (!blocked(c.x + c.vx * dt, c.y)) c.x += c.vx * dt;
@@ -566,12 +592,13 @@ export default class TeamGame {
       !solids.some((s) => circleRectPush(x, y, pk.r * 0.8, s));
     if (free(pk.x + dx, pk.y)) pk.x += dx;
     if (free(pk.x, pk.y + dy)) pk.y += dy;
-    // 물·늪 구멍에 빠지면 마지막으로 안전했던 자리로
+    // 물·늪 구멍에 빠지면 처음 자리나 마지막으로 안전했던 자리로
     if (this.water().some((w) => inRect(pk.x, pk.y, w))) {
-      const at = { x: Math.round(pk.x), y: Math.round(pk.y) };
-      pk.x = pk.sx; pk.y = pk.sy;
+      const at = { x: Math.round(pk.x), y: Math.round(pk.y), hole: this.isHole(pk.x, pk.y) };
+      const to = this.fallBack({ x: pk.ox, y: pk.oy }, { x: pk.sx, y: pk.sy });
+      pk.x = pk.sx = to.x; pk.y = pk.sy = to.y;
       this.mistakes++;
-      this.emit('fx', { type: 'pumpkinSplash', ...at });
+      this.emit('fx', { type: 'pumpkinSplash', ...at, back: to.back });
     } else if (this.safeGround(pk.x, pk.y, pk.r)) { pk.sx = pk.x; pk.sy = pk.y; }
   }
 

@@ -175,24 +175,35 @@ test('물살: 바구니를 잡은 친구는 떠내려가지 않음', () => {
   assert.ok(Math.abs(ps[0].y - 360) > 20, '놓으면 떠내려감');
 });
 
-test('바구니·호박을 물(얼음 구멍)로 밀면 빠져서 빠지기 전 자리로', () => {
+test('이어진 공간에서 바구니·호박이 구멍에 빠지면 처음 자리로, 풍덩 대신 구멍 표시', () => {
   const { g, events } = makeGame(1, LEVELS.findIndex((l) => l.name === '얼음 호수'));
-  const c = g.crate, w = g.level.water[0], left = w.x - w.w / 2;   // 연못 왼쪽 땅에서 오른쪽으로 밀어 넣기
-  Object.assign(c, { x: left - 110, y: w.y, vx: 0, vy: 0 });
-  g.moveCrate(0.05);
-  assert.deepEqual([c.sx, c.sy], [left - 110, w.y]);
-  c.vx = 200;
+  g.gateOpen.fill(true);   // 맵이 뒤집혀도 문이 공간을 나누지 않게
+  const c = g.crate, w = g.level.water[0], left = w.x - w.w / 2;
+  Object.assign(c, { x: left - 110, y: w.y, vx: 200, vy: 0 });
   for (let i = 0; i < 40 && !fx(events, 'crateSplash').length; i++) g.moveCrate(0.05);
-  assert.equal(fx(events, 'crateSplash').length, 1);
-  assert.ok(c.x >= left - 110 && c.x < left && c.y === w.y, `바구니가 ${c.x},${c.y}로 돌아감`);   // 맨 처음 자리가 아닌 연못 바로 앞 땅
+  const [[, f1]] = fx(events, 'crateSplash');
+  assert.equal(f1.back, 'start');
+  assert.equal(f1.hole, true);
+  assert.deepEqual([c.x, c.y], [g.level.crate.x, g.level.crate.y]);
   Object.assign(c, { x: 1200, y: 60 });   // 바구니는 비켜 둠
-  const pk = { x: left - 110, y: w.y, r: 30, sx: 0, sy: 0 };
+  const o = g.level.crate, pk = { x: left - 110, y: w.y, r: 30, ox: o.x, oy: o.y, sx: left - 110, sy: w.y };
   g.pumpkins.push(pk);
-  g.movePumpkin(pk, 0, 0);
-  assert.deepEqual([pk.sx, pk.sy], [left - 110, w.y]);
   for (let i = 0; i < 20 && !fx(events, 'pumpkinSplash').length; i++) g.movePumpkin(pk, 20, 0);
-  assert.equal(fx(events, 'pumpkinSplash').length, 1);
-  assert.ok(pk.x >= left - 110 && pk.x < left && pk.y === w.y, `호박이 ${pk.x},${pk.y}로 돌아감`);
+  assert.equal(fx(events, 'pumpkinSplash')[0][1].back, 'start');
+  assert.deepEqual([pk.x, pk.y], [o.x, o.y]);
+});
+
+test('바구니와 벽 사이에 낀 친구는 벽을 뚫지 않고, 바구니가 멈춤', () => {
+  const { g, ps } = makeGame(2, 0);
+  g.level.walls.push({ x: 500, y: 360, w: 30, h: 500 });
+  const c = g.crate;
+  Object.assign(c, { x: 610, y: 360 });
+  Object.assign(ps[1], { x: 537, y: 360 });
+  Object.assign(ps[0], { x: 670, y: 360 });
+  g.setInput('p0', { x: -1, y: 0, a: true });
+  run(g, 3);
+  assert.ok(ps[1].x > 515, `벽을 뚫음: ${ps[1].x}`);
+  assert.ok(c.x - 40 > 515, `바구니가 친구를 밀고 벽까지 감: ${c.x}`);
 });
 
 test('집 건물은 동물·바구니가 못 지나감', () => {

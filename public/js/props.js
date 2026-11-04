@@ -119,7 +119,7 @@ export function makeCrate(theme) {
       .forEach(([c, x, z]) => g.add(mesh(new THREE.SphereGeometry(0.3, 12, 10), toon(c), x, 1.15, z)));
     const handle = mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 20, Math.PI), toon(0xa0522d), 0, 1.0, 0);
     g.add(handle);
-  } else if (theme === 1) { // 수박
+  } else if (theme === 1) { // 호박
     const w = mesh(new THREE.SphereGeometry(0.95, 20, 14), toon(0x2e7d32), 0, 0.85, 0);
     w.scale.set(1, 0.85, 1);
     g.add(w);
@@ -197,6 +197,15 @@ export function makeBee() {
   return g;
 }
 
+// 노을 계곡의 굴러오는 바위 (눈덩이와 같은 크기·움직임)
+export function makeBoulder(r) {
+  const m = mesh(new THREE.DodecahedronGeometry(r, 0), toon(0x8d6e63), 0, r, 0);
+  const g = new THREE.Group();
+  g.add(m);
+  g.userData.roll = m;
+  return g;
+}
+
 export function makeSnowball(r) {
   const m = mesh(new THREE.IcosahedronGeometry(r, 2), toon(0xffffff), 0, r, 0);
   const g = new THREE.Group();
@@ -247,7 +256,7 @@ export function makeThorn(r) {
   return g;
 }
 
-// 호박: 친구들은 못 밀지만 통나무·눈덩이에 밀려 데굴데굴
+// 호박: 친구들은 못 밀지만 통나무·눈덩이·바위에 밀려 데굴데굴
 export function makePumpkin(r) {
   const g = new THREE.Group();
   const roll = new THREE.Group();

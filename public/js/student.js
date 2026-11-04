@@ -230,7 +230,7 @@ function say(text, ms = 2500) {
   if (ms) say.t = setTimeout(() => { $('hud-msg').textContent = ''; }, ms);
 }
 
-// 화면 맨 위에는 최종 목표만: "🎯 수박을 🏠 우리 집에 갖다 놓아라!"
+// 화면 맨 위에는 최종 목표만: "🎯 호박을 🏠 우리 집에 갖다 놓아라!"
 const particle = (word) => { const c = word.charCodeAt(word.length - 1) - 0xac00; return c >= 0 && c % 28 ? '을' : '를'; };
 function goalText(info) {
   const item = WORLDS[info.world]?.crate || '바구니';
@@ -293,7 +293,8 @@ function showPuzzlePanels(s) {
   $('code-panel').classList.toggle('hidden', !codeShown);
 }
 
-const OOPS = { swamp: '풍덩! 안개 늪에 빠졌어요', water: '풍덩! 물에 빠졌어요', bee: '앗 따가워! 꿀벌에 쏘였어요', thorn: '아야! 가시덤불이에요', log: '쿵! 통나무에 부딪혔어요', snowball: '쿵! 눈덩이에 부딪혔어요' };
+const OOPS = { swamp: '쏙! 안개 늪 구멍에 빠졌어요', hole: '쏙! 구멍에 빠졌어요', water: '풍덩! 물에 빠졌어요', bee: '앗 따가워! 꿀벌에 쏘였어요', thorn: '아야! 가시덤불이에요', log: '쿵! 통나무에 부딪혔어요', snowball: '쿵! 눈덩이에 부딪혔어요', rock: '쿵! 바위에 부딪혔어요' };
+const fallSay = (fx, name) => `${fx.hole ? '쏙!' : '풍덩!'} ${name} ${fx.back === 'start' ? '처음 자리로' : '빠지기 전 자리로'} 돌아갔어요`;
 
 socket.on('fx', (fx) => {
   if (!world) return;
@@ -317,8 +318,8 @@ socket.on('fx', (fx) => {
       break;
     }
     case 'boothOpen': Sfx.plate(); say('🔓 암호를 맞혔어요! 오두막 문이 열렸어요', 2500); break;
-    case 'crateSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 바구니가 물에 빠지기 전 자리로 돌아갔어요', 3000); break;
-    case 'pumpkinSplash': world.poof(fx.x, fx.y, 'water'); Sfx.stun(); say('풍덩! 호박이 물에 빠지기 전 자리로 돌아갔어요', 3000); break;
+    case 'crateSplash': world.poof(fx.x, fx.y, fx.hole ? 'hole' : 'water'); Sfx.stun(); say(fallSay(fx, '바구니가'), 3000); break;
+    case 'pumpkinSplash': world.poof(fx.x, fx.y, fx.hole ? 'hole' : 'water'); Sfx.stun(); say(fallSay(fx, '호박이'), 3000); break;
     case 'oops': {
       world.poof(fx.x, fx.y, fx.cause);
       const who = roster.find((r) => r.slot === fx.slot);

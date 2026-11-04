@@ -4,7 +4,7 @@ import { SYMBOLS } from '/shared/levelkit.js';
 import { RULES, ANIMALS, TEACHER_ANIMAL } from '/shared/constants.js';
 import {
   THEMES, groundTexture, emojiTexture, makeTree, makeFlower, makeRock, makeHouse, makeCrate,
-  makeBee, makeSnowball, makeLog, makeThorn, makeStrawberry, makeFloorPatch, makePumpkin,
+  makeBee, makeSnowball, makeBoulder, makeLog, makeThorn, makeStrawberry, makeFloorPatch, makePumpkin,
   makeTower, makeSign, makeLever, makeBridge, makeDam
 } from './props.js';
 
@@ -467,6 +467,7 @@ export default class World3D {
       let obj;
       if (m.kind === 'bee') obj = makeBee();
       else if (m.kind === 'snowball') obj = makeSnowball(m.r * S);
+      else if (m.kind === 'rock') obj = makeBoulder(m.r * S);
       else obj = makeLog(m.w * S, m.h * S);
       g.add(obj);
       return { obj, kind: m.kind, target: null, last: null };
@@ -652,14 +653,15 @@ export default class World3D {
 
   poof(x, y, cause) {
     const at = new THREE.Vector3(wx(x), 0.6, wz(y));
-    const color = cause === 'water' ? 0x4fc3f7 : 0xffffff;
+    const pit = cause === 'hole' || cause === 'swamp';   // 구멍은 물보라 없이 흙먼지만
+    const color = cause === 'water' ? 0x4fc3f7 : pit ? 0x8d7f9e : 0xffffff;
     for (let i = 0; i < (this.low ? 8 : 14); i++) {
       const m = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshBasicMaterial({ color, transparent: true }));
       m.position.copy(at);
       const v = new THREE.Vector3((Math.random() - 0.5) * 5, 2 + Math.random() * 3, (Math.random() - 0.5) * 5);
       this.addParticle(m, v, 0.8, { grow: true });
     }
-    const label = makeLabel(cause === 'water' ? '풍덩!' : cause === 'bee' ? '앗 따가워!' : cause === 'thorn' ? '아야!' : cause === 'gate' ? '쾅! 닫혔어요' : '쿵!', { height: 0.7, color: '#ffeb3b' });
+    const label = makeLabel(cause === 'water' ? '풍덩!' : pit ? '쏙!' : cause === 'bee' ? '앗 따가워!' : cause === 'thorn' ? '아야!' : cause === 'gate' ? '쾅! 닫혔어요' : '쿵!', { height: 0.7, color: '#ffeb3b' });
     label.position.copy(at).add(new THREE.Vector3(0, 1.4, 0));
     this.addParticle(label, new THREE.Vector3(0, 1.2, 0), 1.2, { noGravity: true });
   }
@@ -730,7 +732,7 @@ export default class World3D {
       if (m.kind === 'bee') {
         m.obj.userData.animate(t);
         if (d.lengthSq() > 1e-6) m.obj.rotation.y = Math.atan2(-d.z, d.x);
-      } else if (m.kind === 'snowball') {
+      } else if (m.kind === 'snowball' || m.kind === 'rock') {
         m.obj.userData.roll.rotation.z -= d.x * 2; m.obj.userData.roll.rotation.x += d.z * 2;
       } else {
         const roll = m.obj.userData.roll;

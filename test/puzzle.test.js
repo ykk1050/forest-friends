@@ -199,3 +199,26 @@ test('센 물살: 바구니가 떠내려가 연못에 빠지면 처음 자리로
   run(g, 2);
   assert.equal(Math.round(g.crate.y), 360, '레버를 잡고 있으면 물살이 멈춤');
 });
+
+test('레버 다리 건너편까지 옮긴 바구니가 물에 빠지면 처음이 아니라 빠지기 전 땅으로', () => {
+  const { g, events } = makeGame(3, 2);
+  const c = g.crate, w = g.level.water[0];
+  const side = Math.sign(g.level.home.x - w.x), edge = w.x + side * w.w / 2;   // 집 쪽 강가
+  Object.assign(c, { x: edge + side * 110, y: w.y, vx: 0, vy: 0 });
+  g.moveCrate(0.05);
+  c.vx = -side * 200;
+  for (let i = 0; i < 40 && !fx(events, 'crateSplash').length; i++) g.moveCrate(0.05);
+  const [[, f1]] = fx(events, 'crateSplash');
+  assert.equal(f1.back, 'safe');
+  assert.equal(f1.hole, false);
+  assert.ok((c.x - edge) * side > 0, `강 건너편으로 돌아감: ${c.x}`);
+});
+
+test('안개 늪 구멍에 빠진 친구는 풍덩이 아니라 늪 원인으로 처리', () => {
+  const { g, ps, events } = makeGame(3, 0);
+  const bad = g.level.swampCells[0];
+  ps[0].safeUntil = 0;
+  Object.assign(ps[0], { x: bad.x, y: bad.y });
+  run(g, 0.1);
+  assert.equal(fx(events, 'oops')[0][1].cause, 'swamp');
+});

@@ -1,6 +1,6 @@
 // 모둠(3~5명) 미션 30단계. 좌표는 가로 1280 × 세로 720 (왼쪽 위가 0,0)
 // 각 단계는 test/levels.test.js 가 '정말 풀 수 있는지' 길찾기로 자동 검사합니다.
-import { vwall, hwall, gateV, team, cratePlate, bee, snowball, log, ring, L } from './levelkit.js';
+import { vwall, hwall, gateV, team, cratePlate, bee, snowball, rock, log, ring, L } from './levelkit.js';
 import { R } from './geometry.js';
 
 export const LEVELS = [
@@ -152,7 +152,7 @@ export const LEVELS = [
     start: { x: 150, y: 200 }, crate: { x: 200, y: 530 }, home: { x: 1140, y: 360 },
     gateDefs: [gateV(380, 285, 435, team([190, 110], [190, 630])), gateV(680, 285, 435, cratePlate(530, 590)),
       gateV(980, 285, 435, team([830, 120], [830, 600]))],
-    movers: [bee([[530, 110], [530, 420]], 110), snowball([[830, 230], [830, 490]], 120)],
+    movers: [bee([[530, 110], [530, 420]], 110), rock([[830, 230], [830, 490]], 120)],
     berries: [[100, 640], [530, 360], [1140, 620]] }),
   L({ world: 4, name: '모두 함께 영차', tip: '아주 무거운 바구니! 물과 가시덤불 사이로 조심조심.',
     crate: { x: 250, y: 360, weight: 3 },
@@ -164,7 +164,7 @@ export const LEVELS = [
     start: { x: 150, y: 560 }, crate: { x: 220, y: 200 },
     walls: [...vwall(420, [470, 720]), ...vwall(760, [0, 250])],
     mud: [R(435, 260, 745, 720)],
-    movers: [bee([[590, 120], [590, 420]], 120), snowball([[880, 620], [880, 300]], 120)],
+    movers: [bee([[590, 120], [590, 420]], 120), rock([[880, 620], [880, 300]], 120)],
     gateDefs: [gateV(1010, 285, 435, team([590, 620], [880, 140]))],
     berries: [[100, 120], [590, 300], [1150, 620]] }),
   L({ world: 4, name: '마지막 대작전', tip: '지금까지 배운 모든 것! 서로 말로 도우며 끝까지!',
@@ -174,7 +174,7 @@ export const LEVELS = [
     ice: [R(395, 0, 665, 280)],
     mud: [R(695, 440, 965, 720)],
     streams: [{ ...R(760, 0, 900, 260), vx: 0, vy: 100 }],
-    movers: [bee([[530, 120], [530, 430]], 120), snowball([[830, 270], [830, 470]], 110),
+    movers: [bee([[530, 120], [530, 430]], 120), rock([[830, 270], [830, 470]], 110),
       log([[1130, 120], [1130, 600]], 140, 30, 90)],
     berries: [[100, 640], [530, 680], [830, 360]] })
 ];

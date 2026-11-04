@@ -30,6 +30,8 @@ export const pumpkin = (x, y, r = 34) => ({ x, y, r });
 
 export const bee = (path, speed = 130, extra = {}) => ({ kind: 'bee', r: 22, path, speed, ...extra });
 export const snowball = (path, speed = 150, extra = {}) => ({ kind: 'snowball', r: 32, path, speed, ...extra });
+// 바위: 눈덩이와 똑같이 움직임 (노을 계곡처럼 눈이 어색한 곳에서 씀)
+export const rock = (path, speed = 150, extra = {}) => ({ kind: 'rock', r: 32, path, speed, ...extra });
 // 통나무: 굴러가는 긴 사각형 (w×h)
 export const log = (path, w, h, speed = 140, extra = {}) => ({ kind: 'log', w, h, path, speed, ...extra });
 // ───── 생각하는 협동 퍼즐 (수수께끼 숲) ─────

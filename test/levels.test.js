@@ -27,3 +27,9 @@ for (const [mode, { name, levels }] of Object.entries(MODES)) {
     console.log(levels.map((lv, i) => `${levelCode(i)} ${lv.name}: ${analyzeLevel(lv, SIZES[mode][mode === 'duo' ? 0 : 1]).par}초`).join('\n'));
   });
 }
+
+test('눈 덮인 산이 아닌 곳에는 눈덩이가 없음', () => {
+  for (const { levels } of Object.values(MODES)) for (const lv of levels) {
+    if (lv.world !== 3) assert.ok(!lv.movers.some((m) => m.kind === 'snowball'), lv.name);
+  }
+});
