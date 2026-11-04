@@ -515,7 +515,8 @@ export default class World3D {
 
     // 바구니
     this.crate = makeCrate(info.world);
-    this.crateLabel = makeLabel('', { height: 0.6 });
+    this.crateLabel = makeLabel('', { height: 0.85 });
+    this.crateLabelText = null;
     this.crateLabel.position.y = 2.6;
     this.crate.add(this.crateLabel);
     this.crate.userData.target = null;
@@ -575,9 +576,13 @@ export default class World3D {
       if (!this.crate.userData.target) this.crate.position.copy(t);
       this.crate.userData.target = t;
       this.crate.userData.moving = !!s.c[3];
-      const ok = s.c[2] >= (s.c[4] ?? this.need);
-      // 몇 명이 필요한지는 알려 주지 않고, 지금 잡은 수만 (충분하면 초록)
-      this.crateLabel.userData.set(s.c[2] ? `✋ ${s.c[2]}` : '', ok ? '#76ff03' : '#fff');
+      const need = s.c[4] ?? this.need, ok = s.c[2] >= need;
+      // 2명 이상 필요한 무거운 바구니는 '잡은 수/필요한 수'를 늘 보여 줌 (충분하면 초록)
+      const label = need > 1 ? `✋ ${s.c[2]}/${need}` : s.c[2] ? `✋ ${s.c[2]}` : '';
+      if (label !== this.crateLabelText || ok !== this.crateLabelOk) {
+        this.crateLabelText = label; this.crateLabelOk = ok;
+        this.crateLabel.userData.set(label, ok ? '#76ff03' : '#fff');
+      }
     }
     (this.plates || []).forEach((p, i) => {
       const on = !!s.pl[i];

@@ -438,6 +438,12 @@ export default class TeamGame {
       for (const s of this.activeStreams()) {
         if (inRect(p.x, p.y, s) && (s.strong || !grabbers.includes(p))) { p.x += s.vx * dt; p.y += s.vy * dt; }
       }
+      // 당기는 동안에는 바구니보다 빨리 걸어가 손이 놓이지 않도록, 잡을 수 있는 거리 안에서 바구니와 함께 움직임
+      if (p.lock && p.move.x * p.lock.x + p.move.y * p.lock.y < 0) {
+        const gap = (c.x - p.x) * p.lock.x + (c.y - p.y) * p.lock.y - half;
+        const over = gap - (RULES.playerR + RULES.grabDist - 4);
+        if (over > 0) { p.x += p.lock.x * over; p.y += p.lock.y * over; }
+      }
       for (let it = 0; it < 2; it++) {
         const push = circleRectPush(p.x, p.y, RULES.playerR, crateNow);
         if (push) { p.x += push.x; p.y += push.y; }

@@ -226,3 +226,38 @@ test('물결 위의 바구니는 물결 방향으로 떠내려감', () => {
   g.moveCrate(0.5);
   assert.ok(Math.abs(c.y - 360 - st.vy * 0.5) < 1, `바구니가 ${c.y - 360}만큼만 움직임`);
 });
+
+test('당기는 동안에는 손이 놓이지 않고 바구니가 밀 때처럼 끌려옴', () => {
+  const { g, ps } = makeGame(2, 0);
+  g.level.crate.weight = 3;   // 둘 다 잡아야 움직이는 무거운 바구니
+  g.level.walls = []; g.level.gates = []; g.level.water = []; g.level.movers = [];
+  g.gateOpen = []; g.plates = [];
+  const c = g.crate;
+  Object.assign(c, { x: 640, y: 360 });
+  ps.forEach((p, i) => Object.assign(p, { x: 700, y: 345 + i * 30, vx: 0, vy: 0 }));
+  g.setInput('p0', { x: 1, y: 0, a: true });
+  g.setInput('p1', { x: 1, y: 0, a: true });
+  run(g, 2);
+  assert.ok(c.x > 640 + 200, `바구니가 ${c.x - 640}만큼만 끌려옴`);
+  assert.ok(ps.every((p) => p.lock), '손이 놓임');
+  // 잡기를 놓으면 다시 마음대로 걸어감
+  g.setInput('p0', { x: 1, y: 0, a: false });
+  const x0 = ps[0].x;
+  run(g, 0.5);
+  assert.ok(ps[0].x > x0 + 60);
+});
+
+test('혼자 당기려 해도 인원이 모자라면 바구니 곁에 머묾', () => {
+  const { g, ps } = makeGame(2, 0);
+  g.level.crate.weight = 3;
+  g.level.walls = []; g.level.gates = []; g.level.water = []; g.level.movers = [];
+  g.gateOpen = []; g.plates = [];
+  const c = g.crate;
+  Object.assign(c, { x: 640, y: 360 });
+  Object.assign(ps[0], { x: 700, y: 360, vx: 0, vy: 0 });
+  Object.assign(ps[1], { x: 200, y: 100 });
+  g.setInput('p0', { x: 1, y: 0, a: true });
+  run(g, 2);
+  assert.equal(Math.round(c.x), 640);
+  assert.ok(ps[0].lock, '손이 놓임');
+});
