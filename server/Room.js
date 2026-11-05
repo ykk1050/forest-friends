@@ -6,13 +6,15 @@ const RECONNECT_GRACE_MS = 60_000;   // 연결이 끊겨도 1분 안에 돌아�
 
 // 선생님 한 명이 연 '반'. 그 안에 모둠(TeamGame)이 여러 개
 export default class Room {
-  constructor(io, code, token = crypto.randomBytes(12).toString('hex')) {
+  // seed: 이 방의 단계 순서·내용을 정하는 수. 서버가 다시 켜져도 선생님 기기에 저장된 값으로 같은 단계가 이어짐
+  constructor(io, code, token = crypto.randomBytes(12).toString('hex'), seed = crypto.randomInt(2 ** 31)) {
     this.io = io;
     this.code = code;
     this.token = token;
+    this.seed = seed;
     this.members = new Map();  // pid → { team, socketId, leaveTimer, isTeacher }
     this.teams = Array.from({ length: TEAM_COUNT }, (_, i) =>
-      new TeamGame(i + 1, (ev, data) => io.to(this.channel(i + 1)).emit(ev, data)));
+      new TeamGame(i + 1, (ev, data) => io.to(this.channel(i + 1)).emit(ev, data), seed));
     this.lastActive = Date.now();
   }
 

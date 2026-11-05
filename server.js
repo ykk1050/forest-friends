@@ -37,21 +37,21 @@ io.on('connection', (socket) => {
     rooms.set(room.code, room);
     socket.data.teacherOf = room.code;
     socket.join(room.teacherChannel);
-    cb?.({ code: room.code, token: room.token });
+    cb?.({ code: room.code, token: room.token, seed: room.seed });
   });
 
-  socket.on('teacher:resume', ({ code, token } = {}, cb) => {
+  socket.on('teacher:resume', ({ code, token, seed } = {}, cb) => {
     let room = roomOf(code), recreated = false;
     // 서버가 다시 켜져(Render 재시작·잠듦) 방이 사라졌으면 같은 코드로 다시 열어 학생들이 그대로 돌아올 수 있게
     if (!room && /^\d{4}$/.test(String(code)) && typeof token === 'string' && token) {
-      room = new Room(io, String(code), token);
+      room = new Room(io, String(code), token, Number.isInteger(seed) && seed >= 0 ? seed : undefined);
       rooms.set(room.code, room);
       recreated = true;
     }
     if (!room || room.token !== token) return cb?.({ ok: false });
     socket.data.teacherOf = room.code;
     socket.join(room.teacherChannel);
-    cb?.({ ok: true, code: room.code, recreated });
+    cb?.({ ok: true, code: room.code, recreated, seed: room.seed });
   });
 
   const teacherRoom = () => rooms.get(socket.data.teacherOf);

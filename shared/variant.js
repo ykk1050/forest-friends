@@ -160,23 +160,25 @@ function jitterLevel(L, rand) {
 }
 
 // ---------- 모두 합치기 ----------
-// n: 모둠 인원(풀 수 있는지 검사에 씀), seed: 무작위 씨앗
+// n: 모둠 인원(풀 수 있는지 검사에 씀, 배열이면 그 인원 모두), seed: 무작위 씨앗
+// 인원 목록과 씨앗이 같으면 결과도 같음 → 같은 방의 모둠은 인원이 달라도 같은 단계를 받음
 export function makeVariant(base, n, seed = Date.now()) {
-  const rand = rng(seed);
+  const rand = rng(seed), sizes = [].concat(n);
+  const fits = (lv) => sizes.every((k) => analyzeLevel(lv, Math.max(k, lv.minPlayers || 1)).ok);
   let L = mirrorLevel(base, rand() < 0.5, rand() < 0.5);
   L = { ...L, variant: { seed } };
 
   for (let tries = 0; tries < 10; tries++) {
     const j = jitterLevel(L, rand);
     const cand = { ...j, house: placeHouse(j) };
-    if (analyzeLevel(cand, Math.max(n, cand.minPlayers || 1)).ok) { L = cand; break; }
+    if (fits(cand)) { L = cand; break; }
   }
 
   if (L.swamps.length) {
     for (let tries = 0; tries < 12; tries++) {
       const swamps = L.swamps.map((sw) => ({ ...sw, tiles: randomSwampPath(sw, sw.tiles, rand) }));
       const cand = { ...L, swamps, swampCells: swamps.flatMap(swampCells) };
-      if (analyzeLevel(cand, Math.max(n, cand.minPlayers || 1)).ok) { L = cand; break; }
+      if (fits(cand)) { L = cand; break; }
     }
   }
 

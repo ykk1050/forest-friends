@@ -35,8 +35,8 @@ function setRoom(code) {
 }
 
 function createRoom() {
-  socket.emit('teacher:create', null, ({ code, token }) => {
-    session = { code, token, className: $('class-name').value.trim() };
+  socket.emit('teacher:create', null, ({ code, token, seed }) => {
+    session = { code, token, seed, className: $('class-name').value.trim() };
     save(KEY, session);
     setRoom(code);
     restoreRecords();
@@ -48,6 +48,8 @@ socket.on('connect', () => {
   if (!session?.code) return createRoom();
   socket.emit('teacher:resume', session, (res) => {
     if (!res.ok) return createRoom();
+    session = { ...session, seed: res.seed };   // 서버가 다시 켜져도 같은 순서로 이어지게 저장
+    save(KEY, session);
     setRoom(res.code);
     if (res.recreated) restoreRecords();   // 서버가 다시 켜졌으면 별·기록을 다시 올려 줌
   });
@@ -66,10 +68,10 @@ $('reset-records').onclick = () => {
   save(REC_KEY, rec);
   socket.emit('teacher:resetRecords');
 };
-$('new-room').onclick = () => { if (confirm('새 방을 만들면 지금 방 코드는 더 이상 쓰지 않아요. 만들까요?')) createRoom(); };
+$('new-room').onclick = () => { if (confirm('새 방을 만들면 지금 방 코드는 더 이상 쓰지 않고, 단계 순서도 새로 섞여요. 만들까요?')) createRoom(); };
 
 const MODE_TAG = { team: '👨‍👩‍👧 모둠 미션', duo: '👫 짝 미션' };
-const levelOptions = (mode, unlocked, current) => levelsOf(mode).map((lv, i) =>
+const levelOptions = (mode, unlocked, current, seed) => levelsOf(mode, seed).map((lv, i) =>
   `<option value="${i}" ${i === current ? 'selected' : ''}>${levelCode(i)} ${lv.name}${i > unlocked ? ' 🔒' : ''}</option>`).join('');
 
 socket.on('room', ({ teams }) => {
@@ -113,7 +115,7 @@ socket.on('room', ({ teams }) => {
       <div class="members"></div>
       ${n && students < TEAM_RECOMMENDED ? `<div class="warn">⚠ 학생 ${students}명 — 3~5명이 알맞아요</div>` : ''}
       <div class="row">
-        <select class="lv-select">${levelOptions(t.mode, t.unlocked, t.current)}</select>
+        <select class="lv-select">${levelOptions(t.mode, t.unlocked, t.current, t.seed)}</select>
         ${n ? '<button class="one go start-one">▶ 이 단계로 시작</button>' : ''}
       </div>
       <div class="row">

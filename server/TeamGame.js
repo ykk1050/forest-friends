@@ -1,40 +1,51 @@
 import { RULES, FIELD, COLORS, COLOR_NAMES, ANIMALS, TEAM_MAX } from '../shared/constants.js';
-import { levelsOf, modeFor, levelCode, ORDER_VERSION, fromOldIndex } from '../shared/missions.js';
+import { levelsOf, orderOf, modeFor, levelCode, ORDER_VERSION, fromOldIndex } from '../shared/missions.js';
 import { analyzeLevel, crateNeed } from '../shared/solver.js';
-import { makeVariant } from '../shared/variant.js';
+import { makeVariant, rng } from '../shared/variant.js';
 import { buildGrid, findPath } from '../shared/grid.js';
 import {
   hazardPos, teamPlatePositions, circleRectPush, rectsOverlap, inRect, distToRect, clamp, homeRect, thornRect
 } from '../shared/geometry.js';
 
 const parCache = new Map();
-function parOf(mode, i, n) {
-  const key = `${mode}:${i}:${n}`;
-  if (!parCache.has(key)) parCache.set(key, analyzeLevel(levelsOf(mode)[i], n).par || 60);
+function parOf(mode, id, n) {
+  const key = `${mode}:${id}:${n}`;
+  if (!parCache.has(key)) parCache.set(key, analyzeLevel(levelsOf(mode)[id], n).par || 60);
   return parCache.get(key);
+}
+// 방 안에서는 모둠 인원이 달라도 같은 단계가 나오도록, 나올 수 있는 인원 모두로 검사해 만든 변형을 함께 씀
+const ROOM_SIZES = { team: [1, 3, 4, 5, 6], duo: [2, 3] };
+const roomVariants = new Map();
+function roomVariant(mode, id, base, seed) {
+  const key = `${mode}:${id}:${seed}`;
+  if (!roomVariants.has(key)) {
+    if (roomVariants.size > 2000) roomVariants.clear();
+    roomVariants.set(key, makeVariant(base, ROOM_SIZES[mode], seed));
+  }
+  return roomVariants.get(key);
 }
 // order: 단계 순서 판 (퍼즐 단계를 섞기 전에 저장한 기록은 번호를 바꿔서 되살림)
 const emptyProgress = () => ({ unlocked: 0, best: {}, order: ORDER_VERSION });
 
 // 그림 암호 만들기: 그림 발판 중에서 len개를 겹치지 않게 골라 순서 정하기 (도전할 때마다 바뀜)
 // 수학 문: 숫자 발판 n개와, 그 답이 나오는 문제 (곱셈구구 또는 뺄셈)
-function mathPads(n) {
+function mathPads(n, rand) {
   const out = [];
   while (out.length < n) {
-    const a = 3 + Math.floor(Math.random() * 7), b = 3 + Math.floor(Math.random() * 7), v = a * b;
+    const a = 3 + Math.floor(rand() * 7), b = 3 + Math.floor(rand() * 7), v = a * b;
     if (out.some((q) => q.v === v)) continue;
-    const k = 7 + Math.floor(Math.random() * 30);
-    out.push({ v, q: Math.random() < 0.7 ? `${a} × ${b}` : `${v + k} − ${k}` });
+    const k = 7 + Math.floor(rand() * 30);
+    out.push({ v, q: rand() < 0.7 ? `${a} × ${b}` : `${v + k} − ${k}` });
   }
   return out;
 }
-function newCode(spec) {
+function newCode(spec, rand) {
   const syms = spec.pads.map((p) => p.sym);
-  for (let i = syms.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [syms[i], syms[j]] = [syms[j], syms[i]]; }
+  for (let i = syms.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [syms[i], syms[j]] = [syms[j], syms[i]]; }
   // owner: 오두막 얼굴 발판을 먼저 밟은 친구(pid), sealed: 그 친구가 오두막에 들어가 문이 닫힘 (그 단계 끝까지)
   const cd = { seq: syms.slice(0, Math.min(spec.len, syms.length)), got: 0, reader: false, on: spec.pads.map(() => false), nagAt: 0, owner: null, sealed: false };
   if (spec.math) {
-    const list = mathPads(spec.pads.length);
+    const list = mathPads(spec.pads.length, rand);
     cd.nums = list.map((q) => q.v);                 // 발판에 쓰인 숫자 (pad.sym 번호 순서)
     cd.qs = cd.seq.map((sym) => list[sym].q);       // 차례대로 나오는 문제
   }
@@ -44,8 +55,10 @@ const pumpkinRect = (p) => ({ x: p.x, y: p.y, w: p.r * 1.6, h: p.r * 1.6 });
 
 // 한 모둠(짝 2명 또는 모둠 3~5명, 선생님이 함께하면 +1)의 게임. 물리 계산은 모두 서버에서만 함
 export default class TeamGame {
-  constructor(team, emit) {
+  // seed: 방 씨앗. 같은 씨앗이면 단계 순서·내용이 같음 (없으면 정해진 순서에 도전할 때마다 무작위)
+  constructor(team, emit, seed = null) {
     this.team = team;
+    this.seed = seed;
     this.emit = emit;            // (event, data) => 이 모둠 화면들로 전송
     this.players = new Map();    // pid → player
     this.progress = { team: emptyProgress(), duo: emptyProgress() };   // best[단계] = { stars, time }
@@ -125,7 +138,10 @@ export default class TeamGame {
   // ---------- 진행 기록 (짝·모둠 따로) ----------
   progressInfo(mode = this.activeMode()) {
     const pr = this.progress[mode];
-    return { mode, unlocked: pr.unlocked, best: pr.best, current: this.current[mode], total: levelsOf(mode).length };
+    // best는 단계 고유 번호로 저장 → 화면에는 이 방의 차례 번호로 바꿔서 보냄
+    const best = {};
+    orderOf(mode, this.seed).forEach((id, i) => { if (pr.best[id]) best[i] = pr.best[id]; });
+    return { mode, unlocked: pr.unlocked, best, current: this.current[mode], total: levelsOf(mode).length, seed: this.seed };
   }
 
   setProgress(saved) {
@@ -172,7 +188,9 @@ export default class TeamGame {
   }
 
   // ---------- 단계 ----------
-  get levels() { return levelsOf(this.mode); }
+  get levels() { return levelsOf(this.mode, this.seed); }
+  // 이 방의 차례 번호 → 단계 고유 번호
+  idOf(i, mode = this.mode) { return orderOf(mode, this.seed)[i]; }
   // 지금 하고 있는 단계 = 도전할 때마다 새로 만든 변형 (뒤집기·늪 길·딸기·장애물 타이밍)
   get level() { return this.lv || this.levels[this.levelIndex]; }
 
@@ -189,7 +207,12 @@ export default class TeamGame {
     this.result = null;
     this.clock = 0;
     this.mistakes = 0;
-    this.lv = makeVariant(this.levels[i], Math.max(1, this.players.size), Math.floor(Math.random() * 2 ** 31));
+    const id = this.idOf(i);
+    // 씨앗이 있으면 방·단계마다 정해진 변형과 암호 → 같은 방의 모든 모둠이 같은 단계
+    const levelSeed = this.seed == null ? null : (this.seed * 31 + id * 2654435761) >>> 0;
+    this.lv = levelSeed == null ? makeVariant(this.levels[i], Math.max(1, this.players.size), Math.floor(Math.random() * 2 ** 31))
+      : roomVariant(this.mode, id, this.levels[i], levelSeed);
+    const rand = levelSeed == null ? Math.random : rng(levelSeed ^ 0x9e3779b9);
     const L = this.level;
     this.gateOpen = L.gates.map(() => false);
     this.berries = L.berries.map(() => false);
@@ -198,7 +221,7 @@ export default class TeamGame {
     this.pumpkins = L.pumpkins.map((p) => ({ ...p, ox: p.x, oy: p.y, sx: p.x, sy: p.y }));
     this.leverOn = false;
     this.bridgeOn = false;
-    this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates) : null));
+    this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates, rand) : null));
     this.scales = L.gates.map((g) => (g.plates.type === 'scale' ? [0, 0] : null));
     // 시계가 0부터 다시 가므로 지난 단계의 무적(깜빡임) 시간도 지움 — 안 지우면 다음 단계에서 오래 깜빡임
     for (const p of this.players.values()) { this.spawn(p); p.safeUntil = 0; }
@@ -317,7 +340,7 @@ export default class TeamGame {
     const L = this.level;
     return {
       mode: this.mode, index: this.levelIndex, code: levelCode(this.levelIndex), total: this.levels.length,
-      name: L.name, world: L.world, tip: L.tip, par: parOf(this.mode, this.levelIndex, Math.max(1, this.players.size)),
+      name: L.name, world: L.world, tip: L.tip, par: parOf(this.mode, this.idOf(this.levelIndex), Math.max(1, this.players.size)),
       field: FIELD, start: L.start, home: L.home, house: L.house, walls: L.walls, colorDoors: L.colorDoors, tides: L.tides,
       gates: L.gates.map((g, i) => ({
         door: g.door, open: this.gateOpen[i], type: g.plates.type,
@@ -330,7 +353,7 @@ export default class TeamGame {
       movers: L.movers.map(({ kind, r, w, h }) => ({ kind, r, w, h })),
       pumpkins: this.pumpkins.map(({ x, y, r }) => ({ x: Math.round(x), y: Math.round(y), r })),
       berries: L.berries, crate: { weight: L.crate.weight, need: this.need() },
-      best: this.progress[this.mode].best[this.levelIndex] || null, roster: this.roster(),
+      best: this.progress[this.mode].best[this.idOf(this.levelIndex)] || null, roster: this.roster(),
       geo: L   // 이번 변형 전체 (로봇 시연이 길찾기에 씀)
     };
   }
@@ -666,22 +689,22 @@ export default class TeamGame {
   }
 
   finishLevel() {
-    const i = this.levelIndex, mode = this.mode;
+    const i = this.levelIndex, mode = this.mode, id = this.idOf(i);
     const pr = this.progress[mode];
     const time = Math.round(this.clock);
-    const par = parOf(mode, i, Math.max(1, this.players.size));
+    const par = parOf(mode, id, Math.max(1, this.players.size));
     const allBerries = this.berries.every(Boolean);
     const stars = 1 + (allBerries ? 1 : 0) + (time <= par * 1000 ? 1 : 0);
-    const prev = pr.best[i];
+    const prev = pr.best[id];
     const newBest = !prev || stars > prev.stars || (stars === prev.stars && time < prev.time);
-    if (newBest) pr.best[i] = { stars: Math.max(stars, prev?.stars || 0), time: Math.min(time, prev?.time ?? Infinity) };
+    if (newBest) pr.best[id] = { stars: Math.max(stars, prev?.stars || 0), time: Math.min(time, prev?.time ?? Infinity) };
     pr.unlocked = Math.max(pr.unlocked, Math.min(i + 1, this.levels.length - 1));
     this.status = 'result';
     this.resultAt = this.clock + RULES.resultMs;
     const last = i + 1 >= this.levels.length;
     this.result = {
       mode, index: i, code: levelCode(i), name: this.level.name, stars, time, par, mistakes: this.mistakes,
-      berries: this.berries.filter(Boolean).length, newBest, best: pr.best[i], last, autoMs: RULES.resultMs
+      berries: this.berries.filter(Boolean).length, newBest, best: pr.best[id], last, autoMs: RULES.resultMs
     };
     this.emit('fx', { type: 'clear' });
     this.emit('result', this.result);
@@ -718,9 +741,9 @@ export default class TeamGame {
     const starsOf = (mode) => Object.values(this.progress[mode].best).reduce((s, b) => s + b.stars, 0);
     const mode = this.activeMode();
     return {
-      team: this.team, status: this.status, mode, level: this.levelIndex, code: levelCode(this.levelIndex),
-      levelName: (this.status === 'lobby' ? levelsOf(mode)[this.current[mode]] : this.level)?.name,
-      levelTip: (this.status === 'lobby' ? levelsOf(mode)[this.current[mode]] : this.level)?.tip,   // 선생님 화면에만
+      team: this.team, seed: this.seed, status: this.status, mode, level: this.levelIndex, code: levelCode(this.levelIndex),
+      levelName: (this.status === 'lobby' ? levelsOf(mode, this.seed)[this.current[mode]] : this.level)?.name,
+      levelTip: (this.status === 'lobby' ? levelsOf(mode, this.seed)[this.current[mode]] : this.level)?.tip,   // 선생님 화면에만
       current: this.current[mode], unlocked: this.progress[mode].unlocked,
       stars: starsOf(mode), starsTeam: starsOf('team'), starsDuo: starsOf('duo'), total: levelsOf(mode).length,
       time: this.status === 'playing' ? Math.floor(this.clock / 1000) : 0, mistakes: this.mistakes || 0,
