@@ -33,6 +33,7 @@ export function mirrorLevel(L, fx, fy) {
   const rect = (r) => ({ ...r, x: X(r.x), y: Y(r.y) });
   const plates = (s) => {
     if (s.type === 'crate') return { ...s, x: X(s.x), y: Y(s.y) };
+    if (s.type === 'scale') return { ...s, left: rect(s.left), right: rect(s.right) };
     if (s.type === 'code') return { ...s, sign: pt(s.sign), pads: s.pads.map(pt), booth: { door: rect(s.booth.door), room: rect(s.booth.room), pad: pt(s.booth.pad) } };
     return { ...s, at: s.at.map(pt) };
   };
@@ -51,6 +52,7 @@ export function mirrorLevel(L, fx, fy) {
     start: pt(L.start), home: pt(L.home), crate: { ...L.crate, x: X(L.crate.x), y: Y(L.crate.y) },
     walls: L.walls.map(rect),
     gates: L.gates.map((g) => ({ ...g, door: rect(g.door), plates: plates(g.plates) })),
+    colorDoors: L.colorDoors.map(rect), tides: L.tides.map(rect),
     water: L.water.map(rect), thorns: L.thorns.map(pt), ice: L.ice.map(rect), mud: L.mud.map(rect),
     streams: L.streams.map((s) => ({ ...rect(s), vx: fx ? -s.vx : s.vx, vy: fy ? -s.vy : s.vy })),
     movers: L.movers.map((m) => ({ ...m, path: m.path.map(([x, y]) => [X(x), Y(y)]) })),
@@ -106,7 +108,7 @@ function randomBerries(L, rand) {
   const avoid = [
     homeRect(L.home), L.house, { x: L.crate.x, y: L.crate.y, w: 140, h: 140 },
     ...L.gates.map((g) => ({ ...g.door, w: g.door.w + 60, h: g.door.h + 60 })),
-    ...L.streams, ...L.bridges,
+    ...L.streams, ...L.bridges, ...L.tides, ...L.colorDoors,
     ...L.gates.filter((g) => g.plates.booth).map((g) => ({ ...g.plates.booth.room, w: g.plates.booth.room.w + 120, h: g.plates.booth.room.h + 120 }))
   ];
   const picks = [];
@@ -134,7 +136,7 @@ function jitterLevel(L, rand) {
   const loose = (w) => w.x - w.w / 2 > 20 && w.x + w.w / 2 < FIELD.w - 20 && w.y - w.h / 2 > 20 && w.y + w.h / 2 < FIELD.h - 20 &&
     ![...L.bridges, ...L.streams].some((b) => rectsOverlap({ ...w, w: w.w + 8, h: w.h + 8 }, b));
   const water = L.water.map((w) => (loose(w) ? { ...w, x: w.x + d(30), y: w.y + d(30) } : w));
-  const solid = [...L.walls, ...water, ...L.streams, ...L.bridges, ...swampBoxes, ...booths, ...L.gates.map((g) => g.door), homeRect(L.home)];
+  const solid = [...L.walls, ...water, ...L.colorDoors, ...L.tides, ...L.streams, ...L.bridges, ...swampBoxes, ...booths, ...L.gates.map((g) => g.door), homeRect(L.home)];
   const clear = (p, r, extra = []) => p.x - r > 0 && p.x + r < FIELD.w && p.y - r > 0 && p.y + r < FIELD.h &&
     ![...solid, ...extra].some((s) => rectsOverlap({ x: p.x, y: p.y, w: r * 2, h: r * 2 }, s));
   const move = (p, a, r, extra) => {

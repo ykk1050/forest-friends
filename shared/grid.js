@@ -107,7 +107,7 @@ export const pathLength = (p) => p.reduce((s, q, i) => (i ? s + Math.hypot(q.x -
 export function placeHouse(level) {
   const L = { ...level, house: null };
   const open = L.gates.map(() => true);
-  const busy = [...L.walls, ...L.water, ...L.streams, ...L.bridges, ...L.ice, ...L.mud,
+  const busy = [...L.walls, ...L.water, ...L.streams, ...L.bridges, ...L.ice, ...L.mud, ...L.colorDoors, ...L.tides,
     ...L.gates.map((g) => g.door), ...L.thorns.map(thornRect),
     ...(L.swamps || []).map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 })),
     { x: L.crate.x, y: L.crate.y, w: 120, h: 120 }, { x: L.start.x, y: L.start.y, w: 100, h: 100 }];

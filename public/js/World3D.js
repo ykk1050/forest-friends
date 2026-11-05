@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeAnimal, toon } from './animals.js';
 import { SYMBOLS } from '/shared/levelkit.js';
-import { RULES, ANIMALS, TEACHER_ANIMAL } from '/shared/constants.js';
+import { RULES, ANIMALS, TEACHER_ANIMAL, COLORS } from '/shared/constants.js';
 import {
   THEMES, groundTexture, emojiTexture, makeTree, makeFlower, makeRock, makeHouse, makeCrate,
   makeBee, makeSnowball, makeBoulder, makeLog, makeThorn, makeStrawberry, makeFloorPatch, makePumpkin,
@@ -356,7 +356,7 @@ export default class World3D {
       const pads = gate.code.pads.map((pad) => {
         const m = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.9, 0.14, 24), new THREE.MeshToonMaterial({ color: 0xf5f0e6, emissive: 0xffffff, emissiveIntensity: 0 }));
         m.position.set(wx(pad.x), 0.07, wz(pad.y));
-        const icon = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), new THREE.MeshBasicMaterial({ map: emojiTexture(SYMBOLS[pad.sym]), transparent: true }));
+        const icon = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), new THREE.MeshBasicMaterial({ map: gate.code.nums ? emojiTexture(String(gate.code.nums[pad.sym]), { color: '#5d4037' }) : emojiTexture(SYMBOLS[pad.sym]), transparent: true }));
         icon.rotation.x = -Math.PI / 2; icon.position.y = 0.08;
         m.add(icon);
         g.add(m);
@@ -430,6 +430,42 @@ export default class World3D {
       d.position.set(wx(gate.door.x), gate.open ? -WALL_H - 0.5 : 0, wz(gate.door.y));
       g.add(d);
       return { group: d, lock, open: gate.open, hold };
+    });
+
+    // 색깔 문: 비치는 문 + 위에 지나갈 수 있는 친구 색 구슬
+    this.colorDoors = (info.colorDoors || []).map((r) => {
+      const mat = new THREE.MeshToonMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+      const door = new THREE.Mesh(new THREE.BoxGeometry(r.w * S, WALL_H, r.h * S), mat);
+      door.position.set(wx(r.x), WALL_H / 2, wz(r.y));
+      g.add(door);
+      const balls = new THREE.Group();
+      balls.position.set(wx(r.x), WALL_H + 0.4, wz(r.y));
+      g.add(balls);
+      return { mat, balls, key: null, along: r.h > r.w };
+    });
+    // 저울판: 노란 판 2개와 판마다 올라선 수
+    this.scales = info.gates.map((gate) => {
+      if (!gate.scale) return null;
+      return [gate.scale.left, gate.scale.right].map((r) => {
+        const mat = new THREE.MeshBasicMaterial({ color: 0xffe082, transparent: true, opacity: 0.75 });
+        const pan = new THREE.Mesh(new THREE.PlaneGeometry(r.w * S, r.h * S), mat);
+        pan.rotation.x = -Math.PI / 2; pan.position.set(wx(r.x), 0.04, wz(r.y));
+        g.add(pan);
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(r.w * S, 0.01, r.h * S)), new THREE.LineBasicMaterial({ color: 0xff8f00 }));
+        edge.position.set(wx(r.x), 0.05, wz(r.y));
+        g.add(edge);
+        const lab = makeLabel('⚖️ 0', { height: 0.9, color: '#fff' });
+        lab.position.set(wx(r.x), 0.8, wz(r.y));
+        g.add(lab);
+        return { lab };
+      });
+    });
+    // 밀물 자리: 썰물 때는 젖은 모래처럼 흐리게, 밀물이면 물
+    this.tides = (info.tides || []).map((r) => {
+      const m = patch(r, 'water');
+      m.position.y = 0.028;
+      m.material.opacity = 0.15;
+      return m;
     });
 
     // 발판: 모둠 발판(동그란 발자국 돌) / 바구니 발판(큰 네모)
@@ -594,6 +630,30 @@ export default class World3D {
     (this.doors || []).forEach((d, i) => {
       d.open = !!s.g[i];
       d.lock.visible = !d.open;   // 표시는 늘 맨 앞에 그려지므로, 땅속으로 내려간 문에는 숨김
+    });
+    (this.colorDoors || []).forEach((d, i) => {
+      const ok = s.dc?.[i] || [], key = ok.join();
+      if (key === d.key) return;
+      d.key = key;
+      d.balls.clear();
+      ok.forEach((slot, k) => {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), new THREE.MeshBasicMaterial({ color: COLORS[slot] }));
+        const t = (k - (ok.length - 1) / 2) * 0.5;
+        ball.position.set(d.along ? 0 : t, 0, d.along ? t : 0);
+        d.balls.add(ball);
+      });
+      d.mat.color.set(ok.length === 1 ? COLORS[ok[0]] : 0xffffff);
+    });
+    (this.scales || []).forEach((sc, i) => {
+      if (!sc || !s.sc?.[i]) return;
+      const same = s.sc[i][0] === s.sc[i][1] && s.sc[i][0] > 0;
+      sc.forEach((p, k) => {
+        p.lab.visible = !s.g[i];
+        p.lab.userData.set(`⚖️ ${s.sc[i][k]}`, same ? '#76ff03' : '#fff');
+      });
+    });
+    (this.tides || []).forEach((m) => {
+      m.material.opacity = s.td === 2 ? 0.85 : s.td === 1 ? 0.3 + 0.2 * Math.sin(performance.now() / 110) : 0.15;
     });
     (this.movers || []).forEach((m, i) => {
       if (!s.mv[i]) return;

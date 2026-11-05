@@ -52,7 +52,19 @@ export function analyzeLevel(level, n = 3) {
       if (open[i]) continue;
       const g = level.gates[i];
       const safe = () => buildGrid(level, open, 'safe');
-      if (g.plates.type === 'team') {
+      if (g.plates.type === 'scale') {
+        // 저울: 양쪽 판에 갈 수 있어야 하고, 인원이 홀수면 바구니를 한쪽 판에 올려야 함
+        const grid = safe(), { left, right } = g.plates;
+        if (!reachable(level, open, grid, level.start, left) || !reachable(level, open, grid, level.start, right)) continue;
+        if (n % 2) {
+          const path = cratePath(left);
+          if (path === 'heavy') return { ok: false, reason: `무거운 바구니는 꾹 발판 문을 지날 수 없어요 (${n}명)` };
+          if (!path) continue;
+          crateDistance += pathLength(path);
+          crate = { x: left.x, y: left.y };
+        }
+        open[i] = progressed = true;
+      } else if (g.plates.type === 'team') {
         const grid = safe();
         const plates = teamPlatePositions(g.plates, n);
         if (plates.every((p) => reachable(level, open, grid, level.start, p))) { open[i] = progressed = true; }
@@ -95,7 +107,7 @@ export function analyzeLevel(level, n = 3) {
   // 목표 시간(초): 바구니 이동 거리 + 문·장애물 수로 어림, 5초 단위로 올림
   const kinds = level.gates.map((g) => g.plates.type);
   const puzzle = kinds.filter((k) => k === 'code').length * 20 + (level.swamps?.length || 0) * 15 + (level.levers?.length ? 12 : 0);
-  const raw = 15 + crateDistance / 50 + kinds.filter((k) => k === 'team').length * 12 +
+  const raw = 15 + crateDistance / 50 + kinds.filter((k) => k === 'scale').length * 12 + (level.colorDoors?.length || 0) * 8 + (level.tides?.length ? 12 : 0) + kinds.filter((k) => k === 'team').length * 12 +
     kinds.filter((k) => k === 'crate').length * 8 + kinds.filter((k) => k === 'hold').length * 14 +
     level.movers.length * 4 + (level.pumpkins?.length || 0) * 6 +
     puzzle + (level.crate.weight === 3 ? 10 : 0) + (level.ice.length || level.mud.length ? 10 : 0) + level.streams.length * 4;

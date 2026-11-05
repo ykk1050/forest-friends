@@ -3,9 +3,10 @@ import { LEVELS } from './levels.js';
 import { DUO_LEVELS } from './levels-duo.js';
 import { PUZZLE_TEAM, PUZZLE_DUO } from './levels-puzzle.js';
 import { EXTRA_TEAM, EXTRA_DUO } from './levels-extra.js';
+import { GIMMICK_TEAM, GIMMICK_DUO } from './levels-gimmick.js';
 
-// 각 30단계 + '수수께끼 숲' 퍼즐 6단계 = 36단계, 그 뒤에 '물안개 호수'·'비밀 섬' 12단계 = 48단계
-// (새 12단계는 맨 뒤에 붙여서 이미 저장된 별·기록의 단계 번호가 그대로 맞음)
+// 각 30단계 + '수수께끼 숲' 퍼즐 6단계 = 36단계, 그 뒤에 '물안개 호수'·'비밀 섬' 12단계, '무지개 언덕' 6단계 = 54단계
+// (새 단계들은 맨 뒤에 붙여서 이미 저장된 별·기록의 단계 번호가 그대로 맞음)
 // 퍼즐 6단계는 순서(첫 퍼즐 → 마지막 퍼즐)는 지키면서 앞 30단계 사이 여기저기에 끼워 넣음.
 // 자리는 정해진 씨앗으로 한 번만 섞어 늘 같음 → 단계 번호로 저장하는 별·기록이 어긋나지 않음
 // (처음 3단계는 연습이라 빼고, 퍼즐끼리 바로 붙어 나오지 않게)
@@ -26,8 +27,8 @@ const mix = (base, puzzles) => {
 };
 
 export const MODES = {
-  team: { name: '모둠 미션', short: '모둠', levels: [...mix(LEVELS, PUZZLE_TEAM), ...EXTRA_TEAM] },
-  duo: { name: '짝 미션', short: '짝', levels: [...mix(DUO_LEVELS, PUZZLE_DUO), ...EXTRA_DUO] }
+  team: { name: '모둠 미션', short: '모둠', levels: [...mix(LEVELS, PUZZLE_TEAM), ...EXTRA_TEAM, ...GIMMICK_TEAM] },
+  duo: { name: '짝 미션', short: '짝', levels: [...mix(DUO_LEVELS, PUZZLE_DUO), ...EXTRA_DUO, ...GIMMICK_DUO] }
 };
 
 // 예전 순서(앞 30단계 다음에 퍼즐 6단계)로 저장된 기록의 단계 번호 → 지금 번호

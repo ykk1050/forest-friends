@@ -17,11 +17,28 @@ function parOf(mode, i, n) {
 const emptyProgress = () => ({ unlocked: 0, best: {}, order: ORDER_VERSION });
 
 // 그림 암호 만들기: 그림 발판 중에서 len개를 겹치지 않게 골라 순서 정하기 (도전할 때마다 바뀜)
+// 수학 문: 숫자 발판 n개와, 그 답이 나오는 문제 (곱셈구구 또는 뺄셈)
+function mathPads(n) {
+  const out = [];
+  while (out.length < n) {
+    const a = 3 + Math.floor(Math.random() * 7), b = 3 + Math.floor(Math.random() * 7), v = a * b;
+    if (out.some((q) => q.v === v)) continue;
+    const k = 7 + Math.floor(Math.random() * 30);
+    out.push({ v, q: Math.random() < 0.7 ? `${a} × ${b}` : `${v + k} − ${k}` });
+  }
+  return out;
+}
 function newCode(spec) {
   const syms = spec.pads.map((p) => p.sym);
   for (let i = syms.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [syms[i], syms[j]] = [syms[j], syms[i]]; }
   // owner: 오두막 얼굴 발판을 먼저 밟은 친구(pid), sealed: 그 친구가 오두막에 들어가 문이 닫힘 (그 단계 끝까지)
-  return { seq: syms.slice(0, Math.min(spec.len, syms.length)), got: 0, reader: false, on: spec.pads.map(() => false), nagAt: 0, owner: null, sealed: false };
+  const cd = { seq: syms.slice(0, Math.min(spec.len, syms.length)), got: 0, reader: false, on: spec.pads.map(() => false), nagAt: 0, owner: null, sealed: false };
+  if (spec.math) {
+    const list = mathPads(spec.pads.length);
+    cd.nums = list.map((q) => q.v);                 // 발판에 쓰인 숫자 (pad.sym 번호 순서)
+    cd.qs = cd.seq.map((sym) => list[sym].q);       // 차례대로 나오는 문제
+  }
+  return cd;
 }
 const pumpkinRect = (p) => ({ x: p.x, y: p.y, w: p.r * 1.6, h: p.r * 1.6 });
 
@@ -182,6 +199,7 @@ export default class TeamGame {
     this.leverOn = false;
     this.bridgeOn = false;
     this.codes = L.gates.map((g) => (g.plates.type === 'code' ? newCode(g.plates) : null));
+    this.scales = L.gates.map((g) => (g.plates.type === 'scale' ? [0, 0] : null));
     // 시계가 0부터 다시 가므로 지난 단계의 무적(깜빡임) 시간도 지움 — 안 지우면 다음 단계에서 오래 깜빡임
     for (const p of this.players.values()) { this.spawn(p); p.safeUntil = 0; }
     this.buildPlates();
@@ -206,6 +224,41 @@ export default class TeamGame {
       // 암호를 다 맞혀 문이 열리면 오두막 문도 열림 (갇힌 친구가 나올 수 있게)
       return b && !this.gateOpen[i] && !(cd.owner === p.pid && !cd.sealed) ? [b.door] : [];
     });
+  }
+
+  // 색깔 문마다 지나갈 수 있는 친구(자리 번호). 앞 문일수록 많이 지나가서 친구마다 맡는 구역이 생김
+  // 1번 문은 첫 친구를 빼고 모두, 2번 문은 둘째까지 빼고 모두… 마지막 친구는 늘 끝까지 감. 혼자 남으면 모두 열림
+  colorAllowed() {
+    const slots = [...this.players.values()].filter((p) => p.connected).map((p) => p.slot).sort((a, b) => a - b);
+    return this.level.colorDoors.map((_, i) => (slots.length < 2 ? slots : slots.slice(Math.min(i + 1, slots.length - 1))));
+  }
+  colorDoorsFor(p) {
+    const doors = this.level.colorDoors;
+    if (!doors.length) return doors;
+    const ok = this.colorAllowed();
+    return doors.filter((_, i) => !ok[i].includes(p.slot));
+  }
+
+  // 저울 발판: 연결된 친구 모두가 판 위에 있고 양쪽 수가 같으면 문이 열리고 계속 열림 (바구니도 1)
+  stepScale(g, gi, players) {
+    const on = players.filter((p) => p.connected);
+    const count = (r) => on.filter((p) => inRect(p.x, p.y, r)).length + (inRect(this.crate.x, this.crate.y, r) ? 1 : 0);
+    const { left, right } = g.plates;
+    const a = count(left), b = count(right);
+    this.scales[gi] = [a, b];
+    const allOn = on.every((p) => inRect(p.x, p.y, left) || inRect(p.x, p.y, right));
+    if (!this.gateOpen[gi] && allOn && a === b && a > 0) {
+      this.gateOpen[gi] = true;
+      this.emit('fx', { type: 'door', gate: gi });
+    }
+  }
+
+  // 밀물: 0 = 썰물, 1 = 곧 물이 들어옴(2초 전 예고), 2 = 밀물
+  tideState() {
+    const T = this.level.tide;
+    if (!T) return 0;
+    const t = this.clock % T.period;
+    return t < T.low - 2000 ? 0 : t < T.low ? 1 : 2;
   }
 
   stepBooths(players) {
@@ -239,7 +292,9 @@ export default class TeamGame {
     const n = Math.max(1, sorted.length);
     this.plates = [];
     this.level.gates.forEach((g, gi) => {
-      if (g.plates.type === 'crate') {
+      if (g.plates.type === 'scale') {
+        // 저울판은 stepScale이 따로 다룸
+      } else if (g.plates.type === 'crate') {
         this.plates.push({ gate: gi, type: 'crate', x: g.plates.x, y: g.plates.y, color: '#c98a4b', on: false });
       } else if (g.plates.type === 'code') {
         // 그림 발판은 stepCode가 따로 다룸
@@ -263,10 +318,11 @@ export default class TeamGame {
     return {
       mode: this.mode, index: this.levelIndex, code: levelCode(this.levelIndex), total: this.levels.length,
       name: L.name, world: L.world, tip: L.tip, par: parOf(this.mode, this.levelIndex, Math.max(1, this.players.size)),
-      field: FIELD, start: L.start, home: L.home, house: L.house, walls: L.walls,
+      field: FIELD, start: L.start, home: L.home, house: L.house, walls: L.walls, colorDoors: L.colorDoors, tides: L.tides,
       gates: L.gates.map((g, i) => ({
         door: g.door, open: this.gateOpen[i], type: g.plates.type,
-        code: g.plates.type === 'code' ? { sign: g.plates.sign, pads: g.plates.pads, len: this.codes[i].seq.length, booth: g.plates.booth } : undefined
+        code: g.plates.type === 'code' ? { sign: g.plates.sign, pads: g.plates.pads, len: this.codes[i].seq.length, booth: g.plates.booth, nums: this.codes[i].nums } : undefined,
+        scale: g.plates.type === 'scale' ? { left: g.plates.left, right: g.plates.right } : undefined
       })),
       levers: L.levers, bridges: L.bridges, swamps: L.swamps, swampCells: L.swampCells, lookouts: L.lookouts,
       plates: this.plates.map(({ gate, type, x, y, color }) => ({ gate, type, x, y, color })),
@@ -302,7 +358,7 @@ export default class TeamGame {
 
   water() {
     const L = this.level;
-    return [...L.water, ...L.swampCells, ...(this.bridgeOn ? [] : L.bridges)];
+    return [...L.water, ...L.swampCells, ...(this.bridgeOn ? [] : L.bridges), ...(this.tideState() === 2 ? L.tides : [])];
   }
   activeStreams() { return this.level.streams.filter((s) => !(s.lever && this.leverOn)); }
 
@@ -312,16 +368,16 @@ export default class TeamGame {
     const near = (w) => Math.abs(x - w.x) < w.w / 2 + m && Math.abs(y - w.y) < w.h / 2 + m;
     const swamps = L.swamps.map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }));
     const holdDoors = L.gates.filter((g) => g.plates.type === 'hold').map((g) => g.door);
-    return ![...L.water, ...swamps, ...L.bridges, ...L.streams, ...holdDoors].some(near);
+    return ![...L.water, ...swamps, ...L.bridges, ...L.streams, ...L.tides, ...holdDoors].some(near);
   }
 
   // 빠진 물건이 돌아갈 자리: 처음 자리와 땅으로 이어져 있으면 처음 자리로.
-  // 레버 다리·꾹 발판 문·안개 늪·센 물살·닫힌 문 너머로 옮겨 온 물건만 빠지기 전 땅으로 (다시 가져오다 단계가 막히지 않게)
+  // 레버 다리·꾹 발판 문·안개 늪·센 물살·밀물 자리·닫힌 문 너머로 옮겨 온 물건만 빠지기 전 땅으로 (다시 가져오다 단계가 막히지 않게)
   fallBack(origin, safe) {
     const L = this.level;
     const open = L.gates.map((g, i) => g.plates.type !== 'hold' && this.gateOpen[i]);
     const swamps = L.swamps.map((sw) => ({ x: (sw.x1 + sw.x2) / 2, y: (sw.y1 + sw.y2) / 2, w: sw.x2 - sw.x1, h: sw.y2 - sw.y1 }));
-    const grid = buildGrid(L, open, 'crate', { bridges: false, extra: [...swamps, ...L.streams.filter((s) => s.strong)] });
+    const grid = buildGrid(L, open, 'crate', { bridges: false, extra: [...swamps, ...L.tides, ...L.streams.filter((s) => s.strong)] });
     const path = findPath(grid, safe, origin);
     const joined = path && Math.hypot(path.at(-1).x - origin.x, path.at(-1).y - origin.y) <= 60;
     return { ...(joined ? origin : safe), back: joined ? 'start' : 'safe' };
@@ -452,7 +508,7 @@ export default class TeamGame {
           if (over > 0) { p.x += (dx / d) * over; p.y += (dy / d) * over; }
         }
         // 벽을 맨 나중에 → 바구니·호박에 밀려도 벽을 뚫고 나가지 않음
-        for (const r of [...solids, ...this.boothDoorsFor(p)]) {
+        for (const r of [...solids, ...this.boothDoorsFor(p), ...this.colorDoorsFor(p)]) {
           const out = circleRectPush(p.x, p.y, RULES.playerR, r);
           if (out) { p.x += out.x; p.y += out.y; }
         }
@@ -509,6 +565,7 @@ export default class TeamGame {
     }
     L.gates.forEach((g, gi) => {
       if (g.plates.type === 'code') return this.stepCode(g, gi, players, now);
+      if (g.plates.type === 'scale') return this.stepScale(g, gi, players);
       const mine = this.plates.filter((pl) => pl.gate === gi);
       if (!mine.length) return;
       if (g.plates.type === 'hold') {
@@ -648,7 +705,10 @@ export default class TeamGame {
       pk: this.pumpkins.map((p) => [r(p.x), r(p.y)]),
       lv: this.leverOn ? 1 : 0,
       br: this.bridgeOn ? 1 : 0,
-      cd: this.codes.map((c) => (c ? [c.seq, c.got, c.reader ? 1 : 0, this.players.get(c.owner)?.slot ?? -1, c.sealed ? 1 : 0] : null)),
+      cd: this.codes.map((c) => (c ? [c.seq, c.got, c.reader ? 1 : 0, this.players.get(c.owner)?.slot ?? -1, c.sealed ? 1 : 0, c.qs] : null)),
+      sc: this.scales,
+      dc: this.colorAllowed(),
+      td: this.tideState(),
       b: this.berries.map((b) => (b ? 1 : 0)),
       m: this.mistakes
     };

@@ -271,6 +271,8 @@ socket.on('state', (s) => {
   world.applyState(s);
   if (world.camMode === 'follow') minimap.draw(s, me?.slot, world.canRotate ? world.yaw : null, roster, world.isLookout);
   showPuzzlePanels(s);
+  if (s.td === 1 && lastTide !== 1) say('🌊 곧 물이 들어와요!', 1800);
+  lastTide = s.td;
   const over = s.t > level.par;
   $('hud-time').textContent = `⏱ ${fmt(s.t)} / 🎯${fmt(level.par)}`;
   $('hud-time').classList.toggle('over', over);
@@ -279,6 +281,7 @@ socket.on('state', (s) => {
 });
 
 // 오두막에 들어간 친구(와 구경하는 선생님)에게만 암호를 보여 줌. 망루 위 친구에게는 안내
+let lastTide = 0;
 function showPuzzlePanels(s) {
   const mine = s.p.find((p) => p[0] === me?.slot);
   let codeShown = false;
@@ -286,8 +289,10 @@ function showPuzzlePanels(s) {
     if (!gate.code || !s.cd?.[i] || s.g[i] || codeShown) return;
     const atSign = me?.watch || (mine && s.cd[i][3] === me.slot && Math.hypot(mine[1] - gate.code.sign.x, mine[2] - gate.code.sign.y) < RULES.signR);
     if (!atSign) return;
-    const [seq, got] = s.cd[i];
-    $('code-seq').innerHTML = seq.map((sym, k) => `<span class="${k < got ? 'done' : ''}">${SYMBOLS[sym]}</span>`).join(' → ');
+    const [seq, got, , , , qs] = s.cd[i];
+    // 수학 문은 지금 풀 문제만, 그림 암호는 전체 순서를 보여 줌
+    if (qs) $('code-seq').textContent = `${qs[Math.min(got, qs.length - 1)]} = ?  (${Math.min(got + 1, qs.length)}/${qs.length})`;
+    else $('code-seq').innerHTML = seq.map((sym, k) => `<span class="${k < got ? 'done' : ''}">${SYMBOLS[sym]}</span>`).join(' → ');
     codeShown = true;
   });
   $('code-panel').classList.toggle('hidden', !codeShown);

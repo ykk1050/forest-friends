@@ -23,7 +23,7 @@ test('수수께끼 숲은 모둠·짝 모두 6단계, 2명 이상', () => {
 });
 
 test('물안개 호수·비밀 섬 12단계는 맨 뒤(7-1~8-6)에, 2명 이상, 모둠·짝 같은 장소', () => {
-  const team = levelsOf('team').slice(36), duo = levelsOf('duo').slice(36);
+  const team = levelsOf('team').slice(36, 48), duo = levelsOf('duo').slice(36, 48);
   assert.equal(team.length, 12);
   assert.ok([...team, ...duo].every((l) => l.minPlayers === 2));
   assert.deepEqual(duo.map((l) => l.name.replace(' 둘이서', '')), team.map((l) => l.name));

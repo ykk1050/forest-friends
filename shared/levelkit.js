@@ -23,6 +23,8 @@ export function gateV(x, y1, y2, plates) {
 }
 export const team = (...at) => ({ type: 'team', at: at.map(([x, y]) => ({ x, y })) });
 export const cratePlate = (x, y) => ({ type: 'crate', x, y });
+// 저울 발판: 연결된 친구가 모두 두 저울판 중 하나에 서고 양쪽 수가 같으면 문이 열림 (바구니도 1로 셈 → 홀수 모둠은 바구니가 꼭 필요)
+export const scale = (left, right) => ({ type: 'scale', left, right });
 // 꾹 발판: 누르고 있는 동안만 문이 열림 (보통 문 양쪽에 하나씩)
 export const hold = (...at) => ({ type: 'hold', at: at.map(([x, y]) => ({ x, y })) });
 // 호박: 친구들은 못 밀지만, 굴러오는 통나무·눈덩이에는 밀려남
@@ -43,6 +45,8 @@ export const code = (sign, pads, len = 3, door = 'down') => ({
   type: 'code', sign: { x: sign[0], y: sign[1] }, len, door,
   pads: pads.map(([x, y], i) => ({ x, y, sym: i }))
 });
+// 수학 문: 그림 대신 숫자 발판. 오두막 친구 화면에 나오는 문제의 답을 차례로 밟음 (문제는 도전할 때마다 새로 나옴)
+export const mathCode = (sign, pads, len = 3, door = 'down') => ({ ...code(sign, pads, len, door), math: true });
 export const BOOTH = { hw: 60, hh: 50, t: 16, gap: 64, pad: 40 };   // 안쪽 반 너비·반 높이, 울타리 두께, 문 너비, 얼굴 발판 거리
 // 오두막 울타리(walls) · 문(door) · 안쪽(room) · 얼굴 발판(pad)
 export function signBooth(sign, side) {
@@ -94,6 +98,10 @@ function build(def) {
     water: def.water || [], thorns: def.thorns || [], streams: def.streams || [],
     ice: def.ice || [], mud: def.mud || [], movers: def.movers || [], pumpkins: def.pumpkins || [],
     levers: def.levers || [], bridges: def.bridges || [],
+    // 색깔 문: 바구니는 지나가고 친구는 정해진 색만 지나감 (TeamGame.colorAllowed)
+    colorDoors: def.colorDoors || [],
+    // 밀물: tide = { period, low } (ms). 주기마다 처음 low 동안은 썰물, 나머지는 tides 자리가 물이 됨
+    tides: def.tides || [], tide: def.tide || null,
     swamps: def.swamps || [], swampCells: (def.swamps || []).flatMap(swampCells), lookouts: def.lookouts || [],
     minPlayers: def.minPlayers || 1,
     berries: def.berries,

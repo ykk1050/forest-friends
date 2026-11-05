@@ -50,7 +50,10 @@ export default class Minimap {
       gt.code.pads.forEach((p) => dot(p.x, p.y, 28, '#f5f0e6'));
       if (gt.code.booth) { dot(gt.code.booth.pad.x, gt.code.booth.pad.y, 28, '#ffcc80'); rect(gt.code.booth.door, '#bcaaa4'); }
     });
+    (info.tides || []).forEach((r) => rect(r, s.td === 2 ? '#2f9ee8' : s.td === 1 ? '#90caf9' : '#d7ccc8'));
+    info.gates.forEach((gt) => { if (gt.scale) { rect(gt.scale.left, '#ffe082'); rect(gt.scale.right, '#ffe082'); } });
     info.walls.forEach((r) => rect(r, '#6d4c41'));
+    (info.colorDoors || []).forEach((r) => rect(r, '#eeeeee'));
     info.gates.forEach((gt, i) => { if (!s.g[i]) rect(gt.door, gt.type === 'hold' ? '#9c6bff' : '#ff7043'); });
     rect({ x: info.home.x, y: info.home.y, w: 170, h: 170 }, 'rgba(255,224,130,.9)');
     if (info.house) rect(info.house, '#c62828');

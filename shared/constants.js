@@ -48,5 +48,5 @@ export const WORLDS = [
   { name: '노을 계곡', emoji: '🌅', crate: '왕도토리' },
   { name: '수수께끼 숲', emoji: '🔮', crate: '보물 상자' }
 ];
-// 학생 지도의 마을 묶음 (6단계씩). 7·8번째 마을은 위 마을들의 꾸밈을 빌려 씀
-export const MAP_GROUPS = [...WORLDS, { name: '물안개 호수', emoji: '🌫️' }, { name: '비밀 섬', emoji: '🏝️' }];
+// 학생 지도의 마을 묶음 (6단계씩). 7~9번째 마을은 위 마을들의 꾸밈을 빌려 씀
+export const MAP_GROUPS = [...WORLDS, { name: '물안개 호수', emoji: '🌫️' }, { name: '비밀 섬', emoji: '🏝️' }, { name: '무지개 언덕', emoji: '🌈' }];
