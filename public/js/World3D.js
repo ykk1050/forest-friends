@@ -28,7 +28,9 @@ function makeLabel(text, { color = '#fff', size = 48, height = 0.5 } = {}) {
     const g = canvas.getContext('2d');
     const font = `900 ${size}px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif`;
     g.font = font;
-    canvas.width = Math.max(Math.ceil(g.measureText(t).width) + 24, 2); canvas.height = size + 20;
+    const w = Math.max(Math.ceil(g.measureText(t).width) + 24, 2);
+    if (w !== canvas.width) tex.dispose();   // 그림 칸은 처음 크기로 고정되므로, 폭이 바뀌면 새로 만들어야 글자가 안 잘림
+    canvas.width = w; canvas.height = size + 20;
     g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineWidth = size / 5; g.strokeStyle = 'rgba(0,0,0,.75)'; g.lineJoin = 'round';
     g.strokeText(t, canvas.width / 2, canvas.height / 2);
@@ -577,8 +579,8 @@ export default class World3D {
       this.crate.userData.target = t;
       this.crate.userData.moving = !!s.c[3];
       const need = s.c[4] ?? this.need, ok = s.c[2] >= need;
-      // 2명 이상 필요한 무거운 바구니는 '잡은 수/필요한 수'를 늘 보여 줌 (충분하면 초록)
-      const label = need > 1 ? `✋ ${s.c[2]}/${need}` : s.c[2] ? `✋ ${s.c[2]}` : '';
+      // 바구니 위에 '잡은 수/필요한 수'를 늘 보여 줌 (충분하면 초록)
+      const label = `✋ ${s.c[2]}/${need}`;
       if (label !== this.crateLabelText || ok !== this.crateLabelOk) {
         this.crateLabelText = label; this.crateLabelOk = ok;
         this.crateLabel.userData.set(label, ok ? '#76ff03' : '#fff');
@@ -591,7 +593,7 @@ export default class World3D {
     });
     (this.doors || []).forEach((d, i) => {
       d.open = !!s.g[i];
-      if (!d.hold) d.lock.userData.set(d.open ? '🔓' : '🔒');
+      d.lock.visible = !d.open;   // 표시는 늘 맨 앞에 그려지므로, 땅속으로 내려간 문에는 숨김
     });
     (this.movers || []).forEach((m, i) => {
       if (!s.mv[i]) return;
@@ -610,7 +612,8 @@ export default class World3D {
       if (!cg || !s.cd?.[i]) return;
       const [, got, reader] = s.cd[i];
       const len = s.cd[i][0].length;
-      cg.prog.userData.set(s.g[i] ? '🔓' : '●'.repeat(got) + '○'.repeat(len - got), s.g[i] ? '#fff' : '#ffeb3b');
+      cg.prog.visible = !s.g[i];   // 문이 열리면 암호 표시는 지움
+      cg.prog.userData.set('●'.repeat(got) + '○'.repeat(len - got), '#ffeb3b');
       cg.signLab.userData.set(reader ? '🔢 읽는 중!' : '🔢 ?', reader ? '#2e7d32' : '#5d4037');
       const owner = s.cd[i][3] ?? -1, sealed = !!s.cd[i][4], open = !!s.g[i];
       if (open && !cg.open) {
