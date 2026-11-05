@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import TeamGame from '../server/TeamGame.js';
+import Room from '../server/Room.js';
 import { fromOldIndex } from '../shared/missions.js';
 import { LEVELS } from '../shared/levels.js';
 import { homeRect, hazardPos } from '../shared/geometry.js';
@@ -260,4 +261,19 @@ test('혼자 당기려 해도 인원이 모자라면 바구니 곁에 머묾', (
   run(g, 2);
   assert.equal(Math.round(c.x), 640);
   assert.ok(ps[0].lock, '손이 놓임');
+});
+
+test('선생님이 고른 모둠만 대기실로 돌아가고 별·기록은 그대로', () => {
+  const io = { to: () => ({ emit() {} }), sockets: { sockets: new Map() } };
+  const room = new Room(io, '1234');
+  const [a, b] = [room.team(1), room.team(2)];
+  a.addPlayer('p0', '가'); b.addPlayer('p1', '나');
+  a.start(0); b.start(0);
+  a.progress.team.best[0] = { stars: 2 };
+  room.lobbyTeam(1);
+  assert.equal(a.status, 'lobby');
+  assert.equal(b.status, 'playing');
+  assert.equal(a.progress.team.best[0].stars, 2);
+  room.lobbyTeam(99);   // 없는 모둠 번호는 무시
+  assert.equal(b.status, 'playing');
 });

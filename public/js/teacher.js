@@ -117,6 +117,7 @@ socket.on('room', ({ teams }) => {
         ${n ? '<button class="one go start-one">▶ 이 단계로 시작</button>' : ''}
       </div>
       <div class="row">
+        ${n && t.status !== 'lobby' ? '<button class="one lobby-one">🚪 대기실로</button>' : ''}
         <a class="one" target="_blank" href="/?watch=${code}&team=${t.team}">👀 구경하기</a>
         ${hasTeacher ? '' : `<a class="one" target="_blank" href="/?code=${code}&team=${t.team}&teacher=${session?.token || ''}">🦉 함께하기</a>`}
       </div>`;
@@ -137,6 +138,9 @@ socket.on('room', ({ teams }) => {
     sel.addEventListener('focus', () => openSelect.add(t.team));
     sel.addEventListener('blur', () => openSelect.delete(t.team));
     sel.addEventListener('change', () => { socket.emit('teacher:setLevel', { team: t.team, level: +sel.value }); openSelect.delete(t.team); sel.blur(); });
+    el.querySelector('.lobby-one')?.addEventListener('click', () => {
+      if (confirm(`${t.team}모둠을 대기실로 보낼까요? (별·기록은 그대로예요)`)) socket.emit('teacher:lobbyTeam', { team: t.team });
+    });
     el.querySelector('.start-one')?.addEventListener('click', () => socket.emit('teacher:startTeam', { team: t.team, level: +sel.value }));
     return el;
   });
