@@ -33,3 +33,18 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .t-rank h2 { margin: 0 0 8px; color: #e8641c; }
 .t-team details.tip { font-size: 15px; background: #fff8e1; border-radius: 10px; padding: 4px 8px; margin-bottom: 6px; }
 .t-team details.tip summary { cursor: pointer; font-weight: 800; color: #e65100; }
+#noise-box { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--card); border: 3px solid var(--line); border-radius: 14px; padding: 8px 14px; margin-bottom: 14px; font-size: 16px; }
+#noise-box small { color: #8a7a66; font-size: 14px; }
+#noise-box input { display: inline-block; width: 160px; vertical-align: middle; padding: 0; }
+.noise-meter { position: relative; flex: 1 1 200px; height: 22px; background: #eee3d0; border-radius: 11px; overflow: hidden; }
+#noise-bar { height: 100%; width: 0; background: var(--green); transition: width .1s linear; }
+#noise-bar.over { background: #e53935; }
+#noise-mark { position: absolute; top: 0; bottom: 0; width: 4px; background: #5d4037; }
+#noise-err { color: #c62828; font-size: 16px; font-weight: 800; margin-bottom: 14px; }
+#noise-alert { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(120, 0, 0, .55); }
+.noise-card { background: var(--card); border: 6px solid #e53935; border-radius: 28px; padding: 24px 40px; text-align: center; width: min(620px, 100%); }
+.noise-icon { font-size: 90px; line-height: 1.1; }
+.noise-card h2 { margin: 4px 0; font-size: 46px; color: #e53935; }
+.noise-card p { font-size: 22px; margin: 8px 0 18px; }
+.noise-card .big { display: block; width: 100%; margin: 0 0 10px; font-size: 28px; }
+.noise-card .t-btn { font-size: 16px; padding: 8px 14px; }

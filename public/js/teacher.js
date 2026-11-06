@@ -1,5 +1,6 @@
 import { TEAM_RECOMMENDED, ANIMALS, TEACHER_ANIMAL } from '/shared/constants.js';
 import { levelsOf, levelCode } from '/shared/missions.js';
+import { NoiseGate, startMic } from '/js/noise.js';
 
 const $ = (id) => document.getElementById(id);
 const socket = io();
@@ -68,6 +69,63 @@ $('reset-records').onclick = () => {
   save(REC_KEY, rec);
   socket.emit('teacher:resetRecords');
 };
+// ---------- 소음 감지 ----------
+const NOISE_KEY = 'ffm-noise-limit';
+const gate = new NoiseGate();
+let stopMic = null, noiseQuietUntil = 0;
+const pageTitle = () => (session?.code ? `방 ${session.code} · 숲속 친구들 대작전` : document.title);
+const noiseLimit = () => +$('noise-limit').value;
+function showNoiseLimit() {
+  $('noise-limit-num').textContent = noiseLimit();
+  $('noise-mark').style.left = `${noiseLimit()}%`;
+  save(NOISE_KEY, noiseLimit());
+}
+$('noise-limit').value = load(NOISE_KEY, 70);
+$('noise-limit').addEventListener('input', showNoiseLimit);
+showNoiseLimit();
+
+function closeNoiseAlert(quietMs) {
+  $('noise-alert').classList.add('hidden');
+  document.title = pageTitle();
+  noiseQuietUntil = Date.now() + quietMs;   // 닫자마자 다시 뜨지 않게 잠시 쉼
+  gate.reset();
+}
+$('noise-ok').onclick = () => { closeNoiseAlert(10000); socket.emit('teacher:lobby'); };
+$('noise-skip').onclick = () => closeNoiseAlert(30000);
+
+function onNoise(level) {
+  $('noise-now').textContent = level;
+  $('noise-bar').style.width = `${level}%`;
+  $('noise-bar').classList.toggle('over', level >= noiseLimit());
+  if (!$('noise-alert').classList.contains('hidden')) return;
+  // 대기실에서는 시끄러워도 돌려보낼 곳이 없으니 게임 중일 때만 잼
+  const playing = lastTeams.some((t) => t.roster.length && (t.status === 'playing' || t.status === 'result'));
+  if (!playing || Date.now() < noiseQuietUntil) return gate.reset();
+  if (gate.feed(level, noiseLimit(), Date.now())) {
+    $('noise-alert').classList.remove('hidden');
+    document.title = '🔊 너무 시끄러워요!';
+  }
+}
+$('noise-toggle').onclick = async () => {
+  $('noise-err').classList.add('hidden');
+  if (stopMic) {
+    stopMic();
+    stopMic = null;
+    gate.reset();
+    $('noise-box').classList.add('hidden');
+    $('noise-toggle').textContent = '🎤 소음 감지 켜기';
+    return;
+  }
+  try {
+    stopMic = await startMic(onNoise);
+    $('noise-box').classList.remove('hidden');
+    $('noise-toggle').textContent = '🎤 소음 감지 끄기';
+  } catch {
+    $('noise-err').textContent = '마이크를 켤 수 없어요. 브라우저 주소창 옆에서 마이크 사용을 허용했는지, 마이크가 연결돼 있는지 확인해 주세요.';
+    $('noise-err').classList.remove('hidden');
+  }
+};
+
 $('new-room').onclick = () => { if (confirm('새 방을 만들면 지금 방 코드는 더 이상 쓰지 않고, 단계 순서도 새로 섞여요. 만들까요?')) createRoom(); };
 
 const MODE_TAG = { team: '👨‍👩‍👧 모둠 미션', duo: '👫 짝 미션' };
