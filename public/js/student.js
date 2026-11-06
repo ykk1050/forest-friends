@@ -373,6 +373,13 @@ socket.on('finished', (p) => {
 });
 
 socket.on('lobby', (p) => { progress = p; showWait(); });
+// 선생님 화면의 소음 경고. 소식이 끊기면(선생님 연결 끊김) 저절로 사라짐
+let noiseWarnTimer = null;
+socket.on('noise:warn', (on) => {
+  clearTimeout(noiseWarnTimer);
+  $('noise-warn').classList.toggle('hidden', !on);
+  if (on) noiseWarnTimer = setTimeout(() => $('noise-warn').classList.add('hidden'), 3000);
+});
 socket.on('kicked', () => {
   store.set(null); me = null; level = null;
   show('join');

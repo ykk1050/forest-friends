@@ -1,6 +1,6 @@
 import { TEAM_RECOMMENDED, ANIMALS, TEACHER_ANIMAL } from '/shared/constants.js';
 import { levelsOf, levelCode } from '/shared/missions.js';
-import { NoiseGate, startMic } from '/js/noise.js';
+import { NoiseBanner, NoiseGate, startMic } from '/js/noise.js';
 
 const $ = (id) => document.getElementById(id);
 const socket = io();
@@ -72,6 +72,7 @@ $('reset-records').onclick = () => {
 // ---------- 소음 감지 ----------
 const NOISE_KEY = 'ffm-noise-limit';
 const gate = new NoiseGate();
+const banner = new NoiseBanner();
 let stopMic = null, noiseQuietUntil = 0;
 const pageTitle = () => (session?.code ? `방 ${session.code} · 숲속 친구들 대작전` : document.title);
 const noiseLimit = () => +$('noise-limit').value;
@@ -97,9 +98,12 @@ function onNoise(level) {
   $('noise-now').textContent = level;
   $('noise-bar').style.width = `${level}%`;
   $('noise-bar').classList.toggle('over', level >= noiseLimit());
-  if (!$('noise-alert').classList.contains('hidden')) return;
   // 대기실에서는 시끄러워도 돌려보낼 곳이 없으니 게임 중일 때만 잼
   const playing = lastTeams.some((t) => t.roster.length && (t.status === 'playing' || t.status === 'result'));
+  // 학생 화면 경고는 기준을 넘는 동안 계속 (선생님 창이 열려 있어도, 쉬는 시간에도)
+  const warn = banner.feed(playing && level >= noiseLimit(), Date.now());
+  if (warn !== null) socket.emit('teacher:noise', warn);
+  if (!$('noise-alert').classList.contains('hidden')) return;
   if (!playing || Date.now() < noiseQuietUntil) return gate.reset();
   if (gate.feed(level, noiseLimit(), Date.now())) {
     $('noise-alert').classList.remove('hidden');
@@ -112,6 +116,7 @@ $('noise-toggle').onclick = async () => {
     stopMic();
     stopMic = null;
     gate.reset();
+    if (banner.off() === false) socket.emit('teacher:noise', false);
     $('noise-box').classList.add('hidden');
     $('noise-toggle').textContent = '🎤 소음 감지 켜기';
     return;

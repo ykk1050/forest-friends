@@ -99,6 +99,7 @@ export default class Room {
   unlockAll() { this.teams.forEach((t) => t.unlockAll()); }
   resetRecords() { this.teams.forEach((t) => t.resetProgress()); }
   lobbyAll() { this.teams.forEach((t) => t.toLobby()); }
+  noiseWarn(on) { this.teams.forEach((t) => this.io.to(this.channel(t.team)).emit('noise:warn', on)); }
   lobbyTeam(n) { this.team(n)?.toLobby(); }
 
   // 선생님 브라우저에 저장해 둔 학급 기록 되살리기 { "1": {unlocked, best}, ... }

@@ -29,6 +29,41 @@ export class NoiseGate {
   }
 }
 
+// 학생 화면 경고: 기준을 넘는 동안 계속 켜 둠. 말 사이 잠깐 조용해져도 깜빡이지 않게 holdMs 뒤에 끔.
+// feed는 보낼 값(true/false)을 돌려주고, 보낼 일이 없으면 null. 켜져 있으면 repeatMs마다 다시 보냄
+// (늦게 들어온 학생도 보고, 선생님 연결이 끊기면 학생 화면에서 저절로 사라지게)
+export class NoiseBanner {
+  constructor(holdMs = 1000, repeatMs = 1000) {
+    this.holdMs = holdMs;
+    this.repeatMs = repeatMs;
+    this.on = false;
+    this.lastOver = null;
+    this.lastSent = null;
+  }
+
+  feed(over, now) {
+    if (over) this.lastOver = now;
+    if (!this.on) {
+      if (!over) return null;
+      this.on = true;
+      this.lastSent = now;
+      return true;
+    }
+    if (!over && now - this.lastOver >= this.holdMs) return this.off();
+    if (now - this.lastSent >= this.repeatMs) {
+      this.lastSent = now;
+      return true;
+    }
+    return null;
+  }
+
+  off() {
+    if (!this.on) return null;
+    this.on = false;
+    return false;
+  }
+}
+
 // 마이크를 켜고 0.1초마다 onLevel(크기)를 부름. 돌려주는 함수를 부르면 마이크를 끔
 export async function startMic(onLevel) {
   // 자동 음량 조절을 끄지 않으면 큰 소리도 작게 줄어들어 소음을 잴 수 없음
