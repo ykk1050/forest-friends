@@ -17,6 +17,9 @@ function tone(freqs, dur = 0.12, type = 'square', vol = 0.08) {
     o.start(t); o.stop(t + dur);
   });
 }
+// BGM도 같은 소리 장치를 씀 (아이패드에서 첫 터치 한 번으로 함께 켜지게)
+export const audioContext = () => ctx || ac();
+
 export const Sfx = {
   unlock: () => ac(),   // 아이패드는 첫 터치 때 소리를 켜야 함
   join: () => tone([523, 784], 0.08),

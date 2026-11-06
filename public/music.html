@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BGM 들어 보기</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    html, body { overflow: auto; height: auto; min-height: 100%; }
+    body { background: linear-gradient(#bfe8ff, #e9f7ff 60%, #d7f0c4); padding: 16px; }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { text-align: center; }
+    .vol { display: flex; gap: 10px; align-items: center; font-size: 18px; background: var(--card); border: 3px solid var(--line); border-radius: 16px; padding: 8px 14px; margin-bottom: 12px; }
+    .vol input { flex: 1; margin: 0; padding: 0; }
+    .row { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; background: var(--card); border: 3px solid var(--line); border-radius: 16px; padding: 10px 14px; margin-bottom: 8px; font-size: 19px; }
+    .row.on { border-color: var(--accent); background: #fff1e4; }
+    .row .ic { font-size: 26px; width: 34px; text-align: center; }
+    .row .t { flex: 1; }
+    .row small { display: block; color: #8a7a66; font-size: 14px; }
+    .row .len { color: #8a7a66; font-size: 15px; white-space: nowrap; }
+    .bar { height: 5px; background: #ffd9b8; border-radius: 3px; margin-top: 5px; overflow: hidden; display: none; }
+    .row.on .bar { display: block; }
+    .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+  </style>
+  <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
+</head>
+<body>
+  <main>
+    <h1>🎵 BGM 들어 보기</h1>
+    <div class="vol">🔊 크기 <input id="vol" type="range" min="0" max="100" step="5" /> <b id="vol-num"></b></div>
+    <div id="list"></div>
+  </main>
+  <script type="module">
+    import { Bgm } from '/js/bgm.js';
+    import { TRACKS, trackSeconds } from '/js/bgm-tracks.js';
+    const list = document.getElementById('list');
+    const rows = {};
+    const fmt = (s) => (s < 60 ? `${Math.round(s)}초` : `${Math.floor(s / 60)}분 ${Math.round(s % 60)}초`);
+    Bgm.init();
+    const vol = document.getElementById('vol'), num = document.getElementById('vol-num');
+    vol.value = Bgm.volume * 100; num.textContent = `${vol.value}%`;
+    vol.oninput = () => { Bgm.setVolume(vol.value / 100); num.textContent = `${vol.value}%`; };
+    for (const [id, t] of Object.entries(TRACKS)) {
+      const b = document.createElement('button');
+      b.className = 'row';
+      b.dataset.track = id;
+      b.innerHTML = `<span class="ic">▶</span><span class="t">${t.title}<small>${t.sub} · ${t.loop ? '반복' : '한 번'}</small><div class="bar"><i></i></div></span><span class="len">${fmt(trackSeconds(t))}</span>`;
+      b.onclick = () => (Bgm.id === id ? Bgm.stop() : Bgm.play(id));
+      list.appendChild(b);
+      rows[id] = b;
+    }
+    setInterval(() => {
+      if (Bgm.id && !Bgm.on) Bgm.stop();   // 한 번만 나오는 곡이 끝남
+      for (const [id, b] of Object.entries(rows)) {
+        const on = Bgm.id === id;
+        b.classList.toggle('on', on);
+        b.querySelector('.ic').textContent = on ? '⏹' : '▶';
+        if (on) b.querySelector('i').style.width = `${(Bgm.position() % trackSeconds(TRACKS[id])) / trackSeconds(TRACKS[id]) * 100}%`;
+      }
+    }, 200);
+  </script>
+</body>
+</html>

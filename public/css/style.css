@@ -183,3 +183,10 @@ body.watching #stick-zone, body.watching #look-zone, body.watching #grab-btn, bo
 #code-seq { font-size: clamp(28px, 4.5vw, 48px); letter-spacing: 4px; white-space: nowrap; }
 #code-seq .done { opacity: .3; }
 
+
+/* 음악 크기 */
+.volume-row { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-weight: 800; font-size: 18px; text-align: left; }
+.volume-row input { flex: 1; margin: 0; padding: 0; }
+.volume-row b { width: 48px; text-align: right; }
+#music-btn { position: fixed; top: 10px; right: 10px; width: 46px; height: 46px; border-radius: 14px; border: 3px solid var(--line); background: #fffdf6; font-size: 22px; z-index: 30; }
+body.playing #music-btn, body.watching #music-btn { display: none; }

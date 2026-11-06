@@ -1,6 +1,8 @@
 import World3D from './World3D.js';
 import Controls from './Controls.js';
 import { Sfx } from './sfx.js';
+import { Bgm } from './bgm.js';
+import { WORLD_TRACKS } from './bgm-tracks.js';
 import { TEAM_COUNT, TEAM_RECOMMENDED, ANIMALS, TEACHER_ANIMAL, WORLDS } from '/shared/constants.js';
 import { MODES, levelsOf, levelCode } from '/shared/missions.js';
 import Minimap from './Minimap.js';
@@ -50,7 +52,18 @@ function setRotate(on) {
 }
 const fmt = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
+// BGM: 구경하기 화면(TV)은 소리를 내지 않음
+const music = (id) => { if (!me?.watch) Bgm.play(id); };
+function renderVolume() {
+  const pct = Math.round(Bgm.volume * 100);
+  $('bgm-volume').value = pct;
+  $('bgm-volume-num').textContent = `${pct}%`;
+  $('music-btn').textContent = pct ? '🔊' : '🔇';
+}
+let lastVolume = 0.5;
+
 function show(id) {
+  if (id === 'join' || id === 'wait') music('lobby');
   ['join', 'wait', 'game', 'done'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
   document.body.classList.toggle('playing', id === 'game');
 }
@@ -254,6 +267,7 @@ socket.on('level', (info) => {
   renderRoster();
   show('game');
   ensureWorld();
+  music(WORLD_TRACKS[info.world] || 'flower');
   world.buildLevel(info, me.watch ? -1 : me.slot);
   minimap.setLevel(info);
   $('hud-level').textContent = `${modeTag(info.mode)} ${info.code} ${info.name}`;
@@ -338,7 +352,7 @@ socket.on('fx', (fx) => {
       world.hearts(fx.slot);
       break;
     case 'clear':
-      Sfx.clear();
+      if (!Bgm.level()) Sfx.clear();   // 음악이 나오면 성공 음악이 대신함
       world.confetti();
       break;
   }
@@ -346,6 +360,7 @@ socket.on('fx', (fx) => {
 
 socket.on('result', (r) => {
   if (!r) return;
+  music('clear');
   $('res-title').textContent = `${modeTag(r.mode)} ${r.code} ${r.name} 성공!`;
   $('res-stars').innerHTML = [0, 1, 2].map((i) => `<span class="${i < r.stars ? '' : 'off'}" style="animation-delay:${0.3 + i * 0.25}s">⭐</span>`).join('');
   $('res-new').classList.toggle('hidden', !r.newBest);
@@ -365,6 +380,7 @@ socket.on('result', (r) => {
 $('res-next').onclick = () => socket.emit('team:choice', 'next');
 
 socket.on('finished', (p) => {
+  music('ending');
   progress = p;
   const stars = Object.values(p.best || {}).reduce((s, b) => s + b.stars, 0);
   $('done-stars').textContent = `${MODES[p.mode]?.name || ''} 모은 별 ⭐ ${stars} / ${p.total * 3}`;
@@ -373,6 +389,7 @@ socket.on('finished', (p) => {
 });
 
 socket.on('lobby', (p) => { progress = p; showWait(); });
+socket.on('bgm:allowed', (on) => Bgm.setAllowed(on));
 // 선생님 화면의 소음 경고. 소식이 끊기면(선생님 연결 끊김) 저절로 사라짐
 let noiseWarnTimer = null;
 socket.on('noise:warn', (on) => {
@@ -407,6 +424,13 @@ $('quality-btn').onclick = () => {
   location.reload();
 };
 $('quality-btn').textContent = lowQuality() ? '🐢' : '✨';
+Bgm.init();
+renderVolume();
+$('bgm-volume').oninput = (e) => { Bgm.setVolume(e.target.value / 100); renderVolume(); };
+$('music-btn').onclick = () => {
+  if (Bgm.volume) { lastVolume = Bgm.volume; Bgm.setVolume(0); } else Bgm.setVolume(lastVolume || 0.5);
+  renderVolume();
+};
 $('settings-btn').onclick = () => $('settings').classList.remove('hidden');
 $('settings-close').onclick = () => $('settings').classList.add('hidden');
 $('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') $('settings').classList.add('hidden'); });

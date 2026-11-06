@@ -61,6 +61,7 @@ io.on('connection', (socket) => {
   socket.on('teacher:unlockAll', () => teacherRoom()?.unlockAll());
   socket.on('teacher:resetRecords', () => teacherRoom()?.resetRecords());
   socket.on('teacher:lobby', () => teacherRoom()?.lobbyAll());
+  socket.on('teacher:bgm', (on) => teacherRoom()?.setBgm(on === true));
   socket.on('teacher:noise', (on) => teacherRoom()?.noiseWarn(on === true));
   socket.on('teacher:lobbyTeam', ({ team } = {}) => teacherRoom()?.lobbyTeam(+team));
   socket.on('teacher:restore', (progress) => teacherRoom()?.restore(progress));

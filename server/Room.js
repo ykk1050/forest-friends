@@ -16,6 +16,7 @@ export default class Room {
     this.teams = Array.from({ length: TEAM_COUNT }, (_, i) =>
       new TeamGame(i + 1, (ev, data) => io.to(this.channel(i + 1)).emit(ev, data), seed));
     this.lastActive = Date.now();
+    this.bgmOn = true;
   }
 
   channel(team) { return `${this.code}:t${team}`; }
@@ -53,6 +54,7 @@ export default class Room {
     if (!game) return;
     socket.emit('roster', game.roster());
     socket.emit('progress', game.progressInfo());
+    socket.emit('bgm:allowed', this.bgmOn);
     if (game.status === 'playing') socket.emit('level', game.levelInfo());
     else if (game.status === 'result') { socket.emit('level', game.levelInfo()); socket.emit('result', game.result); }
     else if (game.status === 'finished') socket.emit('finished', game.progressInfo());
@@ -99,6 +101,11 @@ export default class Room {
   unlockAll() { this.teams.forEach((t) => t.unlockAll()); }
   resetRecords() { this.teams.forEach((t) => t.resetProgress()); }
   lobbyAll() { this.teams.forEach((t) => t.toLobby()); }
+  // 선생님이 학생 BGM을 한 번에 켜고 끔
+  setBgm(on) {
+    this.bgmOn = on;
+    this.teams.forEach((t) => this.io.to(this.channel(t.team)).emit('bgm:allowed', on));
+  }
   noiseWarn(on) { this.teams.forEach((t) => this.io.to(this.channel(t.team)).emit('noise:warn', on)); }
   lobbyTeam(n) { this.team(n)?.toLobby(); }
 
@@ -117,6 +124,6 @@ export default class Room {
   }
 
   summary() {
-    return { code: this.code, teams: this.teams.map((t) => t.summary()) };
+    return { code: this.code, bgmOn: this.bgmOn, teams: this.teams.map((t) => t.summary()) };
   }
 }
