@@ -42,9 +42,12 @@ export const TEACHER_ANIMAL = { id: 'owl', name: '부엉이 선생님', emoji: '
 
 export const WORLDS = [
   { name: '꽃밭 마을', emoji: '🌼', crate: '과일 바구니' },
-  { name: '시냇가', emoji: '💧', crate: '호박' },
+  { name: '시냇가', emoji: '💧', crate: '수박' },
   { name: '꿀벌 숲', emoji: '🐝', crate: '꿀단지' },
   { name: '눈 덮인 산', emoji: '❄️', crate: '선물 상자' },
   { name: '노을 계곡', emoji: '🌅', crate: '왕도토리' },
-  { name: '수수께끼 숲', emoji: '🔮', crate: '보물 상자' }
+  { name: '수수께끼 숲', emoji: '🔮', crate: '보물 상자' },
+  { name: '물안개 호수', emoji: '🌫️', crate: '연꽃 바구니' },
+  { name: '비밀 섬', emoji: '🏝️', crate: '코코넛' },
+  { name: '무지개 언덕', emoji: '🌈', crate: '무지개 사탕' }
 ];

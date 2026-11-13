@@ -9,7 +9,13 @@ export const THEMES = [
   { sky: 0xa8dcc4, ground: 0x76b356, ground2: 0x6caa4d, outside: 0x4f8f3a, wall: 0x7b5a3c, cap: 0x9c7a55, deco: 'forest' },
   { sky: 0xdcecff, ground: 0xf4f8ff, ground2: 0xe6eef9, outside: 0xdfe9f5, wall: 0x9fd3f0, cap: 0xe1f5fe, deco: 'snow' },
   { sky: 0xffc8a2, ground: 0xd9b46c, ground2: 0xcfa960, outside: 0xb88d4c, wall: 0x9a7a5c, cap: 0xb9997a, deco: 'autumn' },
-  { sky: 0xd8ccff, ground: 0x8fcfa6, ground2: 0x84c49b, outside: 0x6a9f84, wall: 0x7e57c2, cap: 0xb39ddb, deco: 'magic' }
+  { sky: 0xd8ccff, ground: 0x8fcfa6, ground2: 0x84c49b, outside: 0x6a9f84, wall: 0x7e57c2, cap: 0xb39ddb, deco: 'magic' },
+  // 7. 물안개 호수: 푸른 안개 낀 호숫가 (맵 밖이 호수, 안개가 가까이까지)
+  { sky: 0xcfe2ea, ground: 0x9fcab0, ground2: 0x95c0a6, outside: 0x6fa8c4, wall: 0x7f93a6, cap: 0xb4c4d2, deco: 'lake', fog: [26, 62], extra: 'mist' },
+  // 8. 비밀 섬: 모래사장과 야자수 (맵 밖이 바다)
+  { sky: 0x9fe3ff, ground: 0xf3e0ae, ground2: 0xecd59e, outside: 0x29b6d8, wall: 0xb98a5a, cap: 0xdcb784, deco: 'island', extra: 'sea' },
+  // 9. 무지개 언덕: 파스텔 색 언덕 (하늘에 무지개)
+  { sky: 0xffe9f6, ground: 0xc6efc2, ground2: 0xbde6d2, outside: 0xd9ccf5, wall: 0xf4a7c6, cap: 0xfff3a6, deco: 'rainbow', extra: 'rainbow' }
 ];
 
 const mesh = (geo, mat, x = 0, y = 0, z = 0) => {
@@ -52,7 +58,48 @@ export function emojiTexture(text, { size = 128, bg = null, color = '#fff' } = {
 // ---------- 테두리 장식 ----------
 export function makeTree(kind) {
   const g = new THREE.Group();
-  if (kind === 'snow' || kind === 'forest') {
+  if (kind === 'island') {
+    // 야자수: 휘어진 줄기 + 늘어진 잎
+    const trunk = toon(0xa1784f);
+    for (let i = 0; i < 6; i++) g.add(mesh(new THREE.CylinderGeometry(0.13 - i * 0.008, 0.16 - i * 0.008, 0.42, 7), trunk, i * i * 0.025, 0.21 + i * 0.4, 0));
+    const tx = 0.9, ty = 2.45;
+    for (let i = 0; i < 6; i++) {
+      const pivot = new THREE.Group();
+      pivot.position.set(tx, ty, 0);
+      pivot.rotation.y = (i / 6) * Math.PI * 2;
+      const leaf = mesh(new THREE.ConeGeometry(0.22, 1.5, 4), toon(i % 2 ? 0x43a047 : 0x2e7d32), 0.7, -0.25, 0);
+      leaf.rotation.z = -1.25;
+      leaf.scale.set(1, 1, 0.35);
+      pivot.add(leaf);
+      g.add(pivot);
+    }
+    g.add(mesh(new THREE.SphereGeometry(0.12, 8, 6), toon(0x6d4c41), tx + 0.1, ty - 0.15, 0.1));
+    g.add(mesh(new THREE.SphereGeometry(0.12, 8, 6), toon(0x6d4c41), tx - 0.1, ty - 0.18, -0.08));
+  } else if (kind === 'lake') {
+    // 호숫가: 늘어진 버드나무 또는 갈대 덤불
+    if (Math.random() < 0.6) {
+      g.add(mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.3, 8), toon(0x6d5a4b), 0, 0.65, 0));
+      const leaf = toon([0x7cb79a, 0x8fc4a6, 0x6aa88a][Math.floor(Math.random() * 3)]);
+      g.add(mesh(new THREE.SphereGeometry(0.8, 12, 10), leaf, 0, 1.6, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.9, 1.15, 1.1, 12, 1, true), leaf, 0, 1.05, 0));
+    } else {
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() * Math.PI * 2, r = Math.random() * 0.4;
+        const reed = mesh(new THREE.CylinderGeometry(0.025, 0.035, 1 + Math.random() * 0.6, 4), toon(0x6b8f4e), Math.cos(a) * r, 0.6, Math.sin(a) * r);
+        reed.rotation.z = (Math.random() - 0.5) * 0.3;
+        g.add(reed);
+        if (i % 2) g.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 6), toon(0x6d4c41), Math.cos(a) * r, 1.25, Math.sin(a) * r));
+      }
+    }
+  } else if (kind === 'rainbow') {
+    // 막대사탕 나무
+    g.add(mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.4, 8), toon(0xfffde7), 0, 0.7, 0));
+    const c = [0xff8fb1, 0xffcc80, 0xfff59d, 0xa5d6a7, 0x90caf9, 0xce93d8][Math.floor(Math.random() * 6)];
+    g.add(mesh(new THREE.SphereGeometry(0.75, 14, 12), toon(c), 0, 1.75, 0));
+    const swirl = mesh(new THREE.TorusGeometry(0.76, 0.07, 6, 24), toon(0xffffff), 0, 1.75, 0);
+    swirl.rotation.x = Math.PI / 2 + 0.4;
+    g.add(swirl);
+  } else if (kind === 'snow' || kind === 'forest') {
     g.add(mesh(new THREE.CylinderGeometry(0.15, 0.2, 0.6, 8), toon(0x6d4c41), 0, 0.3, 0));
     const leaf = toon(kind === 'snow' ? 0x2e7d5b : 0x2e7d32);
     [[1.1, 1.0, 0.9], [0.85, 1.6, 0.8], [0.55, 2.15, 0.7]].forEach(([r, y, h]) => g.add(mesh(new THREE.ConeGeometry(r, h, 10), leaf, 0, y, 0)));
@@ -94,7 +141,7 @@ export function makeHouse(theme) {
   const g = new THREE.Group();
   const wallC = theme === 3 ? 0xffffff : 0xfff3e0;
   g.add(mesh(new THREE.BoxGeometry(2.4, 1.6, 1.8), toon(wallC), 0, 0.8, 0));
-  const roof = mesh(new THREE.ConeGeometry(2.0, 1.2, 4), toon([0xe53935, 0x1e88e5, 0x8e24aa, 0x5c6bc0, 0xef6c00, 0x7e57c2][theme]), 0, 2.2, 0);
+  const roof = mesh(new THREE.ConeGeometry(2.0, 1.2, 4), toon(([0xe53935, 0x1e88e5, 0x8e24aa, 0x5c6bc0, 0xef6c00, 0x7e57c2, 0x26a69a, 0x00acc1, 0xec407a][theme] ?? 0xe53935)), 0, 2.2, 0);
   roof.rotation.y = Math.PI / 4;
   roof.scale.set(1, 1, 0.8);
   g.add(roof);
@@ -119,15 +166,11 @@ export function makeCrate(theme) {
       .forEach(([c, x, z]) => g.add(mesh(new THREE.SphereGeometry(0.3, 12, 10), toon(c), x, 1.15, z)));
     const handle = mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 20, Math.PI), toon(0xa0522d), 0, 1.0, 0);
     g.add(handle);
-  } else if (theme === 1) { // 호박
-    const w = mesh(new THREE.SphereGeometry(0.95, 20, 14), toon(0x2e7d32), 0, 0.85, 0);
-    w.scale.set(1, 0.85, 1);
+  } else if (theme === 1) { // 수박: 매끈한 타원 + 지그재그 줄무늬 + 위에 잘라 놓은 빨간 조각 (호박처럼 보이지 않게)
+    const w = mesh(new THREE.SphereGeometry(0.95, 24, 16), new THREE.MeshToonMaterial({ map: watermelonTexture() }), 0, 0.82, 0);
+    w.scale.set(1.12, 0.84, 0.95);
     g.add(w);
-    for (let i = 0; i < 6; i++) {
-      const s = mesh(new THREE.TorusGeometry(0.95, 0.06, 4, 24, Math.PI), toon(0x1b5e20), 0, 0.85, 0);
-      s.rotation.y = (i / 6) * Math.PI; s.scale.set(1, 0.85, 1);
-      g.add(s);
-    }
+    g.add(watermelonSlice(0.15, 1.78, 0.25));
   } else if (theme === 2) { // 꿀단지
     g.add(mesh(new THREE.CylinderGeometry(0.75, 0.9, 1.3, 16), toon(0xffb300), 0, 0.65, 0));
     g.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.2, 16), toon(0x8d6e63), 0, 1.4, 0));
@@ -154,6 +197,39 @@ export function makeCrate(theme) {
     }
     g.add(mesh(new THREE.BoxGeometry(0.3, 0.35, 0.1), toon(0xffd54f), 0, 0.85, 0.72));
     g.add(mesh(new THREE.SphereGeometry(0.12, 8, 6), toon(0x40c4ff), 0, 1.75, 0));
+  } else if (theme === 6) { // 연꽃 바구니
+    g.add(mesh(new THREE.CylinderGeometry(0.95, 0.78, 0.9, 16), toon(0x8d9f7a), 0, 0.45, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 20, 1, false, 0.3, Math.PI * 2 - 0.6), toon(0x4caf50), 0, 0.95, 0));
+    for (const [px, pz, sc] of [[0, 0, 1], [0.45, 0.3, 0.7], [-0.4, -0.35, 0.7]]) {
+      const lotus = new THREE.Group();
+      lotus.position.set(px, 1.0, pz); lotus.scale.setScalar(sc);
+      for (let k = 0; k < 8; k++) {
+        const pivot = new THREE.Group();
+        pivot.rotation.y = (k / 8) * Math.PI * 2;
+        const petal = mesh(new THREE.SphereGeometry(0.2, 8, 6), toon(k % 2 ? 0xf8bbd0 : 0xf48fb1), 0.14, 0.18, 0);
+        petal.scale.set(0.45, 1.1, 0.3);
+        petal.rotation.z = -0.5;
+        pivot.add(petal);
+        lotus.add(pivot);
+      }
+      lotus.add(mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.08, 10), toon(0xffeb3b), 0, 0.2, 0));
+      g.add(lotus);
+    }
+  } else if (theme === 7) { // 코코넛
+    const nut = mesh(new THREE.DodecahedronGeometry(0.88, 1), toon(0x7b5234), 0, 0.85, 0);
+    nut.scale.set(1, 0.95, 1);
+    g.add(nut);
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2;
+      g.add(mesh(new THREE.SphereGeometry(0.1, 8, 6), toon(0x3e2723), Math.cos(a) * 0.22, 1.66, Math.sin(a) * 0.22));
+    }
+    const leaf = mesh(new THREE.ConeGeometry(0.2, 1.1, 4), toon(0x43a047), 0.3, 1.75, 0);
+    leaf.rotation.z = -1.1; leaf.scale.set(1, 1, 0.35);
+    g.add(leaf);
+  } else if (theme === 8) { // 무지개 사탕: 줄무늬 공 + 막대 + 리본
+    g.add(mesh(new THREE.SphereGeometry(0.9, 24, 16), new THREE.MeshToonMaterial({ map: rainbowTexture() }), 0, 1.05, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.5, 8), toon(0xfffde7), 0, 0.2, 0));
+    g.add(mesh(new THREE.TorusGeometry(0.22, 0.07, 6, 12), toon(0xff4081), 0, 0.5, 0.05));
   } else { // 왕도토리
     const nut = mesh(new THREE.SphereGeometry(0.85, 16, 12), toon(0xc17a3a), 0, 0.85, 0);
     nut.scale.set(1, 1.1, 1);
@@ -162,6 +238,58 @@ export function makeCrate(theme) {
     g.add(mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.35, 6), toon(0x5d4037), 0, 2.15, 0));
   }
   return g;
+}
+
+// 수박 껍질: 연두 바탕에 진초록 지그재그 줄
+function watermelonTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#8bc34a'; g.fillRect(0, 0, 256, 128);
+  g.fillStyle = '#2e6b1f';
+  for (let k = 0; k < 8; k++) {
+    const x0 = k * 32 + 4;
+    g.beginPath(); g.moveTo(x0, 0);
+    for (let y = 0; y <= 128; y += 8) g.lineTo(x0 + ((y / 8) % 2 ? 6 : 0), y);
+    for (let y = 128; y >= 0; y -= 8) g.lineTo(x0 + 13 + ((y / 8) % 2 ? 6 : 0), y);
+    g.closePath(); g.fill();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// 반달 모양 수박 조각: 빨간 속살 + 흰 줄 + 초록 껍질 + 까만 씨
+function watermelonSlice(x, y, z) {
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  g.rotation.set(-0.25, 0.35, 0);
+  const half = (r, color, depth) => {
+    const m = mesh(new THREE.CylinderGeometry(r, r, depth, 20, 1, false, -Math.PI / 2, Math.PI), toon(color));
+    m.rotation.x = Math.PI / 2;
+    return m;
+  };
+  g.add(half(0.5, 0x2e7d32, 0.16), half(0.45, 0xf1f8e9, 0.18), half(0.4, 0xef5350, 0.2));
+  for (let i = 0; i < 5; i++) {
+    const a = 0.45 + i * 0.55;
+    g.add(mesh(new THREE.SphereGeometry(0.035, 6, 4), toon(0x212121), Math.cos(a) * 0.24, Math.sin(a) * 0.24, 0.11));
+  }
+  return g;
+}
+
+// 무지개 사탕 줄무늬
+function rainbowTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  const cols = ['#ff8a80', '#ffcc80', '#fff59d', '#a5d6a7', '#81d4fa', '#ce93d8'];
+  for (let i = -3; i < 14; i++) {
+    g.fillStyle = cols[((i % 6) + 6) % 6];
+    g.beginPath(); g.moveTo(i * 24, 0); g.lineTo(i * 24 + 24, 0); g.lineTo(i * 24 + 64, 128); g.lineTo(i * 24 + 40, 128); g.closePath(); g.fill();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 // ---------- 장애물 ----------

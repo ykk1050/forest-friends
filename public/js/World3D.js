@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeAnimal, toon } from './animals.js';
+import Guides from './guides.js';
 import { SYMBOLS } from '/shared/levelkit.js';
 import { RULES, ANIMALS, TEACHER_ANIMAL, COLORS } from '/shared/constants.js';
 import {
@@ -37,6 +38,7 @@ function makeLabel(text, { color = '#fff', size = 48, height = 0.5 } = {}) {
     g.fillStyle = c; g.fillText(t, canvas.width / 2, canvas.height / 2);
     tex.needsUpdate = true;
     sprite.scale.set(height * (canvas.width / canvas.height), height, 1);
+    sprite.userData.base = sprite.scale.clone();
   };
   sprite.userData.set(text);
   return sprite;
@@ -181,7 +183,7 @@ export default class World3D {
     const T = THEMES[world];
     this.env.clear();
     this.scene.background = new THREE.Color(T.sky);
-    this.scene.fog = new THREE.Fog(T.sky, 45, 90);
+    this.scene.fog = new THREE.Fog(T.sky, ...(T.fog || [45, 90]));
 
     const outside = new THREE.Mesh(new THREE.PlaneGeometry(140, 100), new THREE.MeshLambertMaterial({ color: T.outside }));
     outside.rotation.x = -Math.PI / 2; outside.position.y = -0.02; outside.receiveShadow = true;
@@ -212,6 +214,7 @@ export default class World3D {
       deco.position.set(x, 0, z);
       this.env.add(deco);
     }
+    this.addThemeExtra(T);
     if (T.deco === 'flowers' || T.deco === 'reeds') {
       for (let i = 0; i < (this.low ? 20 : 45); i++) {
         const f = makeFlower();
@@ -220,6 +223,33 @@ export default class World3D {
           0, edge ? -9 + Math.random() * 18 : (Math.random() < 0.5 ? -9.7 : 9.7));
         this.env.add(f);
       }
+    }
+  }
+
+  // 새 마을 배경 꾸밈: 물안개(옅은 구름), 바다(모래섬과 물거품), 무지개(하늘의 무지개)
+  addThemeExtra(T) {
+    if (T.extra === 'mist') {
+      for (let i = 0; i < (this.low ? 8 : 18); i++) {
+        const m = makeLabel('☁️', { height: 2.5 + Math.random() * 2 });
+        m.material.opacity = 0.35;
+        const a = Math.random() * Math.PI * 2;
+        m.position.set(Math.cos(a) * (19 + Math.random() * 6), 0.8 + Math.random() * 1.5, Math.sin(a) * (12 + Math.random() * 4));
+        this.env.add(m);
+      }
+    } else if (T.extra === 'sea') {
+      const sand = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshLambertMaterial({ color: 0xf3e0ae }));
+      sand.rotation.x = -Math.PI / 2; sand.position.y = -0.012; sand.scale.set(21, 13.5, 1);
+      this.env.add(sand);
+      const foam = new THREE.Mesh(new THREE.RingGeometry(1, 1.04, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+      foam.rotation.x = -Math.PI / 2; foam.position.y = -0.008; foam.scale.set(21, 13.5, 1);
+      this.env.add(foam);
+    } else if (T.extra === 'rainbow') {
+      [0xff8a80, 0xffcc80, 0xfff59d, 0xa5d6a7, 0x81d4fa, 0xb39ddb].forEach((c, i) => {
+        const arc = new THREE.Mesh(new THREE.TorusGeometry(22 - i * 0.8, 0.4, 6, 48, Math.PI),
+          new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.75, fog: false }));
+        arc.position.set(0, -9, -16);
+        this.env.add(arc);
+      });
     }
   }
 
@@ -560,6 +590,8 @@ export default class World3D {
     this.crate.userData.target = null;
     g.add(this.crate);
     this.need = info.crate.need;
+    this.guides = new Guides(g, info);
+    this.guides.setCrate(this.crate);
 
     this.setRoster(info.roster, mySlot);
   }
@@ -622,6 +654,7 @@ export default class World3D {
         this.crateLabel.userData.set(label, ok ? '#76ff03' : '#fff');
       }
     }
+    this.guides?.apply(s);
     (this.plates || []).forEach((p, i) => {
       const on = !!s.pl[i];
       p.mat.emissiveIntensity = on ? 0.9 : 0.05;
@@ -876,6 +909,13 @@ export default class World3D {
       this.isLookout = onTower;
       this.tiles.visible = onTower || this.myslot < 0;
       this.tiles.children.forEach((c) => { c.material.emissiveIntensity = 0.4 + Math.sin(t * 4) * 0.25; });
+    }
+    this.guides?.render(t, this.myslot >= 0 ? this.playerPos(this.myslot) : null);
+    // 따라가기 시점에서는 바구니 위 '✋ 잡은 수' 표시가 화면을 가리지 않게 작고 낮게
+    if (this.crateLabel?.userData.base) {
+      const follow = this.camMode === 'follow', k = follow ? 0.55 : 1;
+      this.crateLabel.scale.set(this.crateLabel.userData.base.x * k, this.crateLabel.userData.base.y * k, 1);
+      this.crateLabel.position.y = follow ? 2.15 : 2.6;
     }
     this.updateCamera(dt);
     this.renderer.render(this.scene, this.camera);

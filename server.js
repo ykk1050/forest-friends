@@ -30,7 +30,18 @@ function newCode() {
 const cleanName = (s) => String(s || '').replace(/[<>]/g, '').trim().slice(0, 8) || '친구';
 const roomOf = (code) => rooms.get(String(code ?? '').trim());
 
+// 객체를 받아야 하는 메시지에 null·숫자 같은 이상한 값이 와도 서버가 멈추지 않게, 첫 값을 빈 객체로 바꿔 둠
+const OBJECT_EVENTS = new Set(['teacher:resume', 'teacher:startTeam', 'teacher:setLevel', 'teacher:lobbyTeam', 'student:join', 'watch']);
+
 io.on('connection', (socket) => {
+  socket.use((packet, next) => {
+    if (OBJECT_EVENTS.has(packet[0])) {
+      if (typeof packet[1] === 'function') packet.splice(1, 0, {});
+      else if (packet[1] === null || typeof packet[1] !== 'object') packet[1] = {};
+    }
+    next();
+  });
+
   // ----- 선생님 -----
   socket.on('teacher:create', (_, cb) => {
     const room = new Room(io, newCode());
@@ -114,5 +125,8 @@ setInterval(() => {
     else if (now - r.lastActive > 3 * 60 * 60 * 1000) rooms.delete(code);
   }
 }, 60_000);
+
+// 마지막 안전장치: 예상 못 한 오류가 나도 기록만 하고 서버는 계속 돌아감 (한 기기 때문에 모든 반이 멈추지 않게)
+process.on('uncaughtException', (err) => console.error('[오류] 서버는 계속 돌아가요:', err));
 
 server.listen(PORT, () => console.log(`숲속 친구들 대작전 서버: http://localhost:${PORT}`));

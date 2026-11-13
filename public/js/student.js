@@ -92,10 +92,13 @@ function join(info) {
   socket.emit('student:join', info, (res) => {
     if (!res.ok) {
       // 서버가 다시 켜지는 중이면 선생님 화면이 방을 다시 열 때까지 기다렸다가 자동으로 다시 들어감
+      // (그 사이 다른 방에 새로 들어갔으면 예전 방 다시 들어가기는 그만둠)
+      const stale = () => me?.pid && me.pid !== info.pid;
+      if (stale()) return;
       if (info.pid && res.noRoom && (rejoinTries = (rejoinTries || 0) + 1) <= 200) {
         $('offline').textContent = '서버가 다시 켜지는 중이에요… 잠시만 기다려 주세요 📡';
         $('offline').classList.remove('hidden');
-        setTimeout(() => socket.connected && join(info), 3000);
+        setTimeout(() => socket.connected && !stale() && join(info), 3000);
         return;
       }
       if (info.pid) { store.set(null); me = null; show('join'); }

@@ -108,7 +108,8 @@ export const TRACKS = {
 };
 
 // 마을 번호(constants.js WORLDS 순서) → 곡
-export const WORLD_TRACKS = ['flower', 'stream', 'bee', 'snow', 'sunset', 'mystery'];
+// 7~9번째 마을(물안개 호수·비밀 섬·무지개 언덕)은 분위기가 비슷한 곡을 함께 씀
+export const WORLD_TRACKS = ['flower', 'stream', 'bee', 'snow', 'sunset', 'mystery', 'mystery', 'sunset', 'flower'];
 
 // ---------- 악보 읽기 ----------
 const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
