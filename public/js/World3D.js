@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { makeAnimal, toon } from './animals.js';
-import Guides from './guides.js';
 import { SYMBOLS } from '/shared/levelkit.js';
 import { RULES, ANIMALS, TEACHER_ANIMAL, COLORS } from '/shared/constants.js';
 import {
@@ -590,8 +589,6 @@ export default class World3D {
     this.crate.userData.target = null;
     g.add(this.crate);
     this.need = info.crate.need;
-    this.guides = new Guides(g, info);
-    this.guides.setCrate(this.crate);
 
     this.setRoster(info.roster, mySlot);
   }
@@ -646,6 +643,8 @@ export default class World3D {
       if (!this.crate.userData.target) this.crate.position.copy(t);
       this.crate.userData.target = t;
       this.crate.userData.moving = !!s.c[3];
+      this.crate.userData.grab = s.c[2];
+      this.crate.userData.need = s.c[4] ?? this.need;
       const need = s.c[4] ?? this.need, ok = s.c[2] >= need;
       // 바구니 위에 '잡은 수/필요한 수'를 늘 보여 줌 (충분하면 초록)
       const label = `✋ ${s.c[2]}/${need}`;
@@ -654,11 +653,12 @@ export default class World3D {
         this.crateLabel.userData.set(label, ok ? '#76ff03' : '#fff');
       }
     }
-    this.guides?.apply(s);
     (this.plates || []).forEach((p, i) => {
       const on = !!s.pl[i];
       p.mat.emissiveIntensity = on ? 0.9 : 0.05;
       p.mesh.position.y = on ? 0.02 : 0.06;
+      if (on && !p.wasOn) p.bounce = 0.4;
+      p.wasOn = on;
     });
     (this.doors || []).forEach((d, i) => {
       d.open = !!s.g[i];
@@ -738,6 +738,10 @@ export default class World3D {
 
   playerPos(slot) { return this.players.get(slot)?.group.position; }
 
+  // 표정: 부딪힌 친구는 어지럽게, 성공하면 모두 깡충
+  mood(slot, name, sec) { this.players.get(slot)?.animal.setMood(name, sec); }
+  celebrate() { for (const pl of this.players.values()) pl.animal.setMood('happy', 1.6); }
+
   // ---------- 효과 ----------
   addParticle(obj, v, life, opts = {}) {
     this.scene.add(obj);
@@ -809,7 +813,10 @@ export default class World3D {
       let diff = -pl.face - pl.animal.root.rotation.y;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       pl.animal.root.rotation.y += diff * Math.min(1, dt * 12);
-      pl.animal.animate(dt, pl.speed, pl.grab, t);
+      const c = this.crate?.position;
+      const nearCrate = !!c && pl.grab && Math.hypot(pl.group.position.x - c.x, pl.group.position.z - c.z) < 2.4;
+      const crateMoving = !!this.crate?.userData.moving;
+      pl.animal.animate(dt, pl.speed, pl.grab, t, { push: nearCrate && crateMoving, strain: nearCrate && !crateMoving });
       // 처음 자리로 돌아온 직후엔 깜빡깜빡
       pl.animal.root.visible = !pl.safe || Math.floor(t * 10) % 2 === 0;
       pl.label.material.opacity = pl.online === false ? 0.35 : 1;   // 연결 끊긴 친구는 이름이 흐리게
@@ -823,7 +830,10 @@ export default class World3D {
 
     if (this.crate?.userData.target) {
       this.crate.position.lerp(this.crate.userData.target, k);
-      this.crate.rotation.z = this.crate.userData.moving ? Math.sin(t * 18) * 0.03 : 0;
+      const u = this.crate.userData;
+      const tooFew = u.grab > 0 && u.grab < u.need && !u.moving;
+      this.crate.rotation.z = u.moving ? Math.sin(t * 18) * 0.03 : tooFew ? Math.sin(t * 46) * 0.05 : 0;
+      this.crate.rotation.x = tooFew ? Math.sin(t * 39) * 0.03 : 0;
     }
     (this.movers || []).forEach((m) => {
       if (!m.target) return;
@@ -842,7 +852,10 @@ export default class World3D {
     });
     (this.doors || []).forEach((d) => {
       const want = d.open ? -WALL_H - 0.5 : 0;
-      d.group.position.y += (want - d.group.position.y) * Math.min(1, dt * 4);
+      if (d.open !== d.wasOpen) { d.v = d.open ? 3.2 : 0; d.wasOpen = d.open; }   // 열리는 순간 위로 톡
+      const h = Math.min(dt, 0.05);
+      d.v = (d.v || 0) + ((want - d.group.position.y) * 70 - (d.v || 0) * 8) * h;
+      d.group.position.y += d.v * h;
       d.lock.visible = d.group.position.y > -0.6;   // 문과 함께 내려간 자물쇠는 감춤
     });
     (this.berries || []).forEach((b, i) => { b.rotation.y = t * 2 + i; b.position.y = Math.sin(t * 3 + i) * 0.1; });
@@ -910,7 +923,12 @@ export default class World3D {
       this.tiles.visible = onTower || this.myslot < 0;
       this.tiles.children.forEach((c) => { c.material.emissiveIntensity = 0.4 + Math.sin(t * 4) * 0.25; });
     }
-    this.guides?.render(t, this.myslot >= 0 ? this.playerPos(this.myslot) : null);
+    (this.plates || []).forEach((p) => {
+      if (!(p.bounce > 0)) return;
+      p.bounce = Math.max(0, p.bounce - dt);
+      const k = 1 - p.bounce / 0.4;   // 0→1
+      p.mesh.scale.set(1 + Math.sin(k * Math.PI) * 0.22 * (1 - k), 1, 1 + Math.sin(k * Math.PI) * 0.22 * (1 - k));
+    });
     // 따라가기 시점에서는 바구니 위 '✋ 잡은 수' 표시가 화면을 가리지 않게 작고 낮게
     if (this.crateLabel?.userData.base) {
       const follow = this.camMode === 'follow', k = follow ? 0.55 : 1;

@@ -345,6 +345,7 @@ socket.on('fx', (fx) => {
     case 'pumpkinSplash': world.poof(fx.x, fx.y, fx.hole ? 'hole' : 'water'); Sfx.stun(); say(fallSay(fx, '호박이'), 3000); break;
     case 'oops': {
       world.poof(fx.x, fx.y, fx.cause);
+      world.mood(fx.slot, 'dizzy', 1.2);
       const who = roster.find((r) => r.slot === fx.slot);
       if (fx.slot === me?.slot && !me.watch) { Sfx.stun(); say(`${OOPS[fx.cause] || '앗!'} → 처음 자리로!`, 2500); }
       else say(`${who ? who.name : '친구'}: ${OOPS[fx.cause] || '앗!'} → 처음 자리로!`, 2500);
@@ -357,6 +358,7 @@ socket.on('fx', (fx) => {
     case 'clear':
       if (!Bgm.level()) Sfx.clear();   // 음악이 나오면 성공 음악이 대신함
       world.confetti();
+      world.celebrate();
       break;
   }
 });

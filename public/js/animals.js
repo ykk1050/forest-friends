@@ -65,14 +65,18 @@ export function makeAnimal(kind, scarf = '#29b6f6') {
 
   // 눈 + 반짝임
   const eyeY = kind === 'owl' ? 0.05 : 0.02;
+  const eyes = [], shines = [];   // 깜빡임·표정에 씀
   for (const z of [-0.17, 0.17]) {
     if (kind === 'panda') head.add(ball(dark, 0.12, 0.36, eyeY - 0.01, z * 1.05, 0.5, 1.15, 0.9));
     if (kind === 'owl') head.add(ball(belly, 0.16, 0.33, eyeY, z * 1.15, 0.5, 1, 1));
     const eye = ball(flat(0x1b1b1b), kind === 'owl' ? 0.09 : 0.075, 0.41, eyeY, z * (kind === 'owl' ? 1.15 : 1), 0.6, 1.1, 1);
     eye.castShadow = false;
+    eye.userData.sy = eye.scale.y;
+    eyes.push(eye);
     head.add(eye);
     const shine = ball(flat(0xffffff), 0.027, 0.46, eyeY + 0.035, z * (kind === 'owl' ? 1.15 : 1) - 0.02);
     shine.castShadow = false;
+    shines.push(shine);
     head.add(shine);
     // 볼터치
     if (kind !== 'owl') {
@@ -178,16 +182,43 @@ export function makeAnimal(kind, scarf = '#29b6f6') {
   bob.add(scarfTail);
 
   let phase = Math.random() * 10;
+  let blinkIn = 1 + Math.random() * 3, blinkLeft = 0;
+  let mood = null, moodLeft = 0, moodLen = 1, lean = 0;
   return {
     root,
+    // 잠깐 표정 짓기: 'dizzy'(부딪혀서 어지러움) · 'happy'(성공해서 깡충)
+    setMood(name, sec) { mood = name; moodLeft = moodLen = sec; },
     // speed: 0~1 (걷는 빠르기), grab: 잡기 중인지
-    animate(dt, speed, grab, t) {
+    // pose.push: 바구니를 밀고 있음(앞으로 기울임) · pose.strain: 잡았는데 안 움직임(발 동동)
+    animate(dt, speed, grab, t, pose = {}) {
       phase += dt * (6 + speed * 8);
       const walk = Math.min(1, speed * 1.5);
+      moodLeft = Math.max(0, moodLeft - dt);
+      const now = moodLeft > 0 ? mood : null;
+      // 눈: 몇 초마다 깜빡, 어지러우면 질끈, 기쁘면 눈웃음
+      blinkIn -= dt;
+      if (blinkIn < 0) { blinkLeft = 0.13; blinkIn = 2 + Math.random() * 3; }
+      blinkLeft = Math.max(0, blinkLeft - dt);
+      const open = now === 'dizzy' ? 0.15 : now === 'happy' ? 0.35 : blinkLeft > 0 ? 0.1 : 1;
+      eyes.forEach((e) => { e.scale.y = e.userData.sy * open; });
+      shines.forEach((s) => { s.visible = open > 0.5; });
       bob.position.y = Math.abs(Math.sin(phase)) * 0.09 * walk + Math.sin(t * 2.4) * 0.012;
+      // 기쁘면 깡충깡충 (세 번)
+      if (now === 'happy') bob.position.y += Math.abs(Math.sin((1 - moodLeft / moodLen) * Math.PI * 3)) * 0.55;
+      // 어지러우면 빙글빙글
+      bob.rotation.y = now === 'dizzy' ? bob.rotation.y + dt * 14 : 0;
+      // 밀 때 앞으로 기울이고, 안 밀리면 덜덜
+      const wantLean = pose.push ? -0.3 : pose.strain ? -0.2 : 0;
+      lean += (wantLean - lean) * Math.min(1, dt * 10);
+      bob.rotation.z = lean;
+      bob.position.x = pose.strain ? Math.sin(t * 42) * 0.025 : 0;
       bob.rotation.x = Math.sin(phase) * 0.09 * walk;         // 뒤뚱뒤뚱
       head.rotation.x = Math.sin(t * 1.7) * 0.04;
-      feet.forEach((f, i) => { f.position.x = 0.05 + Math.sin(phase + i * Math.PI) * 0.13 * walk; f.position.y = 0.08 + Math.max(0, Math.sin(phase + i * Math.PI)) * 0.06 * walk; });
+      feet.forEach((f, i) => {
+        f.position.x = 0.05 + Math.sin(phase + i * Math.PI) * 0.13 * walk;
+        f.position.y = 0.08 + Math.max(0, Math.sin(phase + i * Math.PI)) * 0.06 * walk +
+          (pose.strain ? Math.max(0, Math.sin(t * 26 + i * Math.PI)) * 0.08 : 0);   // 발 동동
+      });
       arms.forEach((a, i) => {
         if (grab) { a.rotation.z = 1.35; a.position.x = 0.22; }   // 두 팔을 앞으로 쭉
         else { a.rotation.z = Math.sin(phase + i * Math.PI) * 0.5 * walk; a.position.x = 0.06; }

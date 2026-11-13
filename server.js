@@ -82,6 +82,12 @@ io.on('connection', (socket) => {
   socket.on('student:join', ({ code, name, team, pid, teacherToken } = {}, cb) => {
     const room = roomOf(code);
     if (!room) return cb?.({ ok: false, noRoom: true, err: '방 코드를 찾을 수 없어요. 선생님 화면의 숫자를 확인해 주세요.' });
+    // 이 기기가 다른 방(또는 같은 방의 다른 자리)에 있었다면 거기서 먼저 빠짐 → 두 방의 화면이 섞이지 않게
+    const prev = rooms.get(socket.data.room);
+    if (prev && (prev !== room || String(pid ?? '') !== String(socket.data.pid ?? ''))) {
+      prev.leave(socket.data.pid);
+      socket.data.room = null; socket.data.pid = null;
+    }
     const res = room.join(socket, { name: cleanName(name), team: +team, pid: pid ? String(pid) : null, teacherToken });
     if (res.ok) { socket.data.room = room.code; socket.data.pid = res.pid; }
     cb?.(res);

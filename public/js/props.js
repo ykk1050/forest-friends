@@ -166,11 +166,21 @@ export function makeCrate(theme) {
       .forEach(([c, x, z]) => g.add(mesh(new THREE.SphereGeometry(0.3, 12, 10), toon(c), x, 1.15, z)));
     const handle = mesh(new THREE.TorusGeometry(0.75, 0.06, 6, 20, Math.PI), toon(0xa0522d), 0, 1.0, 0);
     g.add(handle);
-  } else if (theme === 1) { // 수박: 매끈한 타원 + 지그재그 줄무늬 + 위에 잘라 놓은 빨간 조각 (호박처럼 보이지 않게)
+  } else if (theme === 1) { // 수박: 매끈한 타원 + 지그재그 줄무늬 + 꼭지 (호박처럼 보이지 않게)
     const w = mesh(new THREE.SphereGeometry(0.95, 24, 16), new THREE.MeshToonMaterial({ map: watermelonTexture() }), 0, 0.82, 0);
     w.scale.set(1.12, 0.84, 0.95);
     g.add(w);
-    g.add(watermelonSlice(0.15, 1.78, 0.25));
+    // 꼭지: 짧은 줄기 + 돌돌 말린 덩굴 + 작은 잎 (조각 대신, 통수박 그대로)
+    const stem = mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.22, 6), toon(0x6d8b3a), 0, 1.68, 0);
+    stem.rotation.z = 0.35;
+    g.add(stem);
+    const curl = mesh(new THREE.TorusGeometry(0.11, 0.025, 6, 16, Math.PI * 1.5), toon(0x7cb342), -0.12, 1.8, 0);
+    curl.rotation.y = Math.PI / 2;
+    g.add(curl);
+    const leaf = mesh(new THREE.SphereGeometry(0.16, 10, 8), toon(0x558b2f), 0.16, 1.7, 0.08);
+    leaf.scale.set(1.5, 0.25, 0.85);
+    leaf.rotation.y = 0.5;
+    g.add(leaf);
   } else if (theme === 2) { // 꿀단지
     g.add(mesh(new THREE.CylinderGeometry(0.75, 0.9, 1.3, 16), toon(0xffb300), 0, 0.65, 0));
     g.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.2, 16), toon(0x8d6e63), 0, 1.4, 0));
@@ -257,24 +267,6 @@ function watermelonTexture() {
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
-}
-
-// 반달 모양 수박 조각: 빨간 속살 + 흰 줄 + 초록 껍질 + 까만 씨
-function watermelonSlice(x, y, z) {
-  const g = new THREE.Group();
-  g.position.set(x, y, z);
-  g.rotation.set(-0.25, 0.35, 0);
-  const half = (r, color, depth) => {
-    const m = mesh(new THREE.CylinderGeometry(r, r, depth, 20, 1, false, -Math.PI / 2, Math.PI), toon(color));
-    m.rotation.x = Math.PI / 2;
-    return m;
-  };
-  g.add(half(0.5, 0x2e7d32, 0.16), half(0.45, 0xf1f8e9, 0.18), half(0.4, 0xef5350, 0.2));
-  for (let i = 0; i < 5; i++) {
-    const a = 0.45 + i * 0.55;
-    g.add(mesh(new THREE.SphereGeometry(0.035, 6, 4), toon(0x212121), Math.cos(a) * 0.24, Math.sin(a) * 0.24, 0.11));
-  }
-  return g;
 }
 
 // 무지개 사탕 줄무늬

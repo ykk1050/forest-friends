@@ -8,10 +8,20 @@
     html, body { margin: 0; height: 100%; background: #bfe8ff; font-family: 'Malgun Gothic', sans-serif; overflow: hidden; }
     canvas { display: block; }
     #names { position: fixed; bottom: 16px; left: 0; right: 0; display: flex; justify-content: space-around; font-size: 20px; font-weight: 800; color: #3b2a1a; }
+    #poses { position: fixed; top: 12px; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 0 12px; }
+    #poses button { font: inherit; font-size: 17px; font-weight: 800; padding: 8px 14px; border-radius: 12px; border: 3px solid #e8d9b8; background: #fffdf6; cursor: pointer; }
+    #poses button.on { border-color: #ff8a3d; background: #fff1e4; }
   </style>
   <script type="importmap">{ "imports": { "three": "/vendor/three/three.module.js" } }</script>
 </head>
 <body>
+  <div id="poses">
+    <button data-pose="walk" class="on">🚶 걷기</button>
+    <button data-pose="push">💪 바구니 밀기</button>
+    <button data-pose="strain">😣 안 밀려서 동동</button>
+    <button data-mood="dizzy">😵 부딪힘</button>
+    <button data-mood="happy">😊 성공 깡충</button>
+  </div>
   <div id="names"><span>🐻 곰</span><span>🐰 토끼</span><span>🦊 여우</span><span>🐼 판다</span><span>🐧 펭귄</span><span>🦉 선생님</span></div>
   <script type="module">
     import * as THREE from 'three';
@@ -38,13 +48,23 @@
       scene.add(a.root);
       return a;
     });
+    // 자세 버튼: 걷기·밀기·동동은 계속, 부딪힘·깡충은 한 번
+    let pose = 'walk';
+    document.querySelectorAll('#poses button').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.mood) { list.forEach((a) => a.setMood(b.dataset.mood, b.dataset.mood === 'happy' ? 1.6 : 1.2)); return; }
+      pose = b.dataset.pose;
+      document.querySelectorAll('#poses [data-pose]').forEach((x) => x.classList.toggle('on', x === b));
+    }));
     const resize = () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); };
     addEventListener('resize', resize); resize();
     let last = performance.now();
     renderer.setAnimationLoop((now) => {
       const dt = (now - last) / 1000; last = now;
       const t = now / 1000;
-      list.forEach((a, i) => a.animate(dt, (Math.sin(t * 0.8 + i) + 1) / 2, i % 3 === 0 && Math.sin(t) > 0.5, t));
+      list.forEach((a, i) => {
+        if (pose === 'walk') a.animate(dt, (Math.sin(t * 0.8 + i) + 1) / 2, false, t);
+        else a.animate(dt, pose === 'push' ? 0.5 : 0, true, t, { push: pose === 'push', strain: pose === 'strain' });
+      });
       renderer.render(scene, cam);
     });
   </script>
