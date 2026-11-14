@@ -65,7 +65,10 @@ export function makeAnimal(kind, scarf = '#29b6f6') {
 
   // 눈 + 반짝임
   const eyeY = kind === 'owl' ? 0.05 : 0.02;
-  const eyes = [], shines = [];   // 깜빡임·표정에 씀
+  const eyes = [], shines = [], smiles = [];   // 깜빡임·표정에 씀
+  // 웃는 눈 ^ ^ : 위로 볼록한 반원 고리 (평소엔 숨김)
+  const smileGeo = new THREE.TorusGeometry(kind === 'owl' ? 0.07 : 0.06, 0.017, 6, 14, Math.PI);
+  const smileMat = flat(kind === 'panda' ? 0xffffff : 0x1b1b1b);
   for (const z of [-0.17, 0.17]) {
     if (kind === 'panda') head.add(ball(dark, 0.12, 0.36, eyeY - 0.01, z * 1.05, 0.5, 1.15, 0.9));
     if (kind === 'owl') head.add(ball(belly, 0.16, 0.33, eyeY, z * 1.15, 0.5, 1, 1));
@@ -78,6 +81,12 @@ export function makeAnimal(kind, scarf = '#29b6f6') {
     shine.castShadow = false;
     shines.push(shine);
     head.add(shine);
+    const smile = new THREE.Mesh(smileGeo, smileMat);
+    smile.rotation.y = Math.PI / 2;   // 얼굴 앞(+x)을 보게
+    smile.position.set(kind === 'owl' ? 0.42 : 0.44, eyeY - 0.03, z * (kind === 'owl' ? 1.15 : 1));
+    smile.visible = false;
+    smiles.push(smile);
+    head.add(smile);
     // 볼터치
     if (kind !== 'owl') {
       const blush = ball(new THREE.MeshBasicMaterial({ color: 0xff8fab, transparent: true, opacity: 0.75 }), 0.07, 0.37, -0.1, z * 1.55, 0.35, 0.6, 1);
@@ -199,12 +208,15 @@ export function makeAnimal(kind, scarf = '#29b6f6') {
       blinkIn -= dt;
       if (blinkIn < 0) { blinkLeft = 0.13; blinkIn = 2 + Math.random() * 3; }
       blinkLeft = Math.max(0, blinkLeft - dt);
-      const open = now === 'dizzy' ? 0.15 : now === 'happy' ? 0.35 : blinkLeft > 0 ? 0.1 : 1;
-      eyes.forEach((e) => { e.scale.y = e.userData.sy * open; });
-      shines.forEach((s) => { s.visible = open > 0.5; });
+      const open = now === 'dizzy' ? 0.15 : blinkLeft > 0 ? 0.1 : 1;
+      const smiling = now === 'happy';
+      eyes.forEach((e) => { e.scale.y = e.userData.sy * open; e.visible = !smiling; });
+      shines.forEach((s) => { s.visible = !smiling && open > 0.5; });
+      smiles.forEach((s) => { s.visible = smiling; });
       bob.position.y = Math.abs(Math.sin(phase)) * 0.09 * walk + Math.sin(t * 2.4) * 0.012;
       // 기쁘면 깡충깡충 (세 번)
-      if (now === 'happy') bob.position.y += Math.abs(Math.sin((1 - moodLeft / moodLen) * Math.PI * 3)) * 0.55;
+      const hop = now === 'happy' ? Math.abs(Math.sin((1 - moodLeft / moodLen) * Math.PI * 3)) * 0.55 : 0;
+      bob.position.y += hop;
       // 어지러우면 빙글빙글
       bob.rotation.y = now === 'dizzy' ? bob.rotation.y + dt * 14 : 0;
       // 밀 때 앞으로 기울이고, 안 밀리면 덜덜
@@ -216,7 +228,7 @@ export function makeAnimal(kind, scarf = '#29b6f6') {
       head.rotation.x = Math.sin(t * 1.7) * 0.04;
       feet.forEach((f, i) => {
         f.position.x = 0.05 + Math.sin(phase + i * Math.PI) * 0.13 * walk;
-        f.position.y = 0.08 + Math.max(0, Math.sin(phase + i * Math.PI)) * 0.06 * walk +
+        f.position.y = 0.08 + hop + Math.max(0, Math.sin(phase + i * Math.PI)) * 0.06 * walk +
           (pose.strain ? Math.max(0, Math.sin(t * 26 + i * Math.PI)) * 0.08 : 0);   // 발 동동
       });
       arms.forEach((a, i) => {
