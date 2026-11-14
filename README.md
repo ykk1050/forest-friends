@@ -126,3 +126,6 @@ node scripts/load-30.mjs                               # 학생 30명 동시 접
 - Three.js, socket.io, Express — 모두 MIT: 무료, 상업적 이용 가능
 - 동물·소품 3D 모델, 효과음 — 외부 파일 없이 코드로 직접 만듦 → 저작권 문제 없음
 - 글꼴 'Jua' — SIL 오픈 폰트 라이선스(상업적 무료, Google Fonts), 인터넷이 없으면 시스템 글꼴
+
+## 출처와 라이선스
+참가 화면·대기실·설정·선생님 화면 맨 아래의 `출처와 라이선스` 링크로 `credits.html`을 새 탭에서 열어요. 라이선스 전문은 `THIRD-PARTY-NOTICES.txt`(웹 주소 `/THIRD-PARTY-NOTICES.txt`)에 있어요. 그림·소리·글꼴·라이브러리를 더하거나 빼면 두 곳을 함께 고쳐요.

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>출처와 라이선스 · 숲속 친구들 대작전</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" />
+  <style>
+    :root { --ink: #3b2a1a; --muted: #8a7a66; --card: #fffdf6; --line: #e8d9b8; --accent: #e8641c; --tag: #fff1e4; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #dff4ff; color: var(--ink); font-family: 'Jua', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+    main { width: min(720px, 100%); margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 16px; }
+    h1 { margin: 0; font-size: clamp(26px, 6vw, 34px); color: var(--accent); }
+    .lead { margin: 0; font-size: 17px; line-height: 1.6; }
+    section { background: var(--card); border: 3px solid var(--line); border-radius: 20px; padding: 14px 18px; }
+    h2 { margin: 0 0 8px; font-size: 21px; }
+    ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    li { font-size: 16px; line-height: 1.55; }
+    li b { font-size: 17px; }
+    .lic { display: inline-block; font-size: 13px; padding: 1px 8px; border-radius: 99px; background: var(--tag); color: var(--accent); margin-left: 4px; vertical-align: 1px; }
+    small, .note { color: var(--muted); font-size: 14px; }
+    a { color: #1e7fc2; }
+    .back { align-self: flex-start; font: inherit; font-size: 17px; padding: 8px 16px; border-radius: 12px; border: 2px solid var(--line); background: #fff; color: var(--ink); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="/" id="back">← 게임으로</a>
+    <h1>출처와 라이선스</h1>
+    <p class="lead">이 게임에 쓰인 그림, 소리, 글꼴, 프로그램이 어디서 왔는지 적어 둔 곳이에요.</p>
+
+    <section>
+      <h2>🎨 그림과 3D 모양</h2>
+      <ul>
+        <li><b>동물 친구들, 바구니, 나무, 집, 장애물, 마을 배경</b><br>외부 그림이나 3D 모델 파일 없이 모두 코드로 직접 만들었어요.</li>
+        <li><b>이모지 (🐻 🍓 ✋ 등)</b><br><small>게임에 이모지 그림을 넣지 않았어요. 각 기기에 원래 들어 있는 글꼴로 보여요.</small></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>🎵 소리와 음악</h2>
+      <ul>
+        <li><b>효과음과 배경음악 9곡</b><br>음원 파일 없이 브라우저의 소리 기능(Web Audio)으로 직접 연주해요. 악보도 직접 만들었어요.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>🔤 글꼴</h2>
+      <ul>
+        <li><b>Jua (주아)</b> <span class="lic">SIL OFL 1.1</span><br>디자인 Woowahan Brothers · <a href="https://fonts.google.com/specimen/Jua" target="_blank" rel="noopener">Google Fonts</a>에서 불러와요.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>🧩 프로그램 라이브러리</h2>
+      <ul>
+        <li><b>three.js</b> <span class="lic">MIT</span><br>3D 화면 그리기 · Copyright © 2010-2026 three.js authors</li>
+        <li><b>Socket.IO</b> <span class="lic">MIT</span><br>기기끼리 실시간 연결 · Copyright © 2014-present Guillermo Rauch and Socket.IO contributors</li>
+        <li><b>Express</b> <span class="lic">MIT</span><br>웹 서버 · Copyright © 2009-2015 TJ Holowaychuk, Roman Shtylman, Douglas Christopher Wilson</li>
+      </ul>
+    </section>
+
+    <p class="note">라이선스 전문은 <a href="/THIRD-PARTY-NOTICES.txt" target="_blank" rel="noopener">THIRD-PARTY-NOTICES.txt</a>에 있어요.</p>
+  </main>
+  <script>
+    // 게임에서 새 탭으로 열었으면 '게임으로'가 이 탭을 닫아 원래 게임 탭(진행 중인 게임)으로 돌아가게.
+    // 닫을 수 없으면 첫 화면으로 이동
+    document.getElementById('back').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (history.length > 1) { history.back(); return; }
+      window.close();
+      setTimeout(() => { location.href = '/'; }, 300);
+    });
+  </script>
+</body>
+</html>

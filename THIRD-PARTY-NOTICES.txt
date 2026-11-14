@@ -1,0 +1,66 @@
+숲속 친구들 대작전 - 외부 자료 고지문 (THIRD-PARTY NOTICES)
+=====================================================================
+
+이 게임의 그림(동물·바구니·나무·집 등 3D 모양), 효과음, 배경음악은
+외부 파일 없이 모두 코드로 직접 만들었습니다.
+아래는 게임이 함께 쓰는 외부 글꼴과 프로그램 라이브러리의 저작권과 라이선스입니다.
+게임 안 출처 페이지: /credits.html
+
+---------------------------------------------------------------------
+1. 글꼴: Jua (주아)
+---------------------------------------------------------------------
+디자인: Woowahan Brothers
+제공: Google Fonts (https://fonts.google.com/specimen/Jua)
+라이선스: SIL Open Font License, Version 1.1
+         https://openfontlicense.org
+게임에 글꼴 파일을 넣지 않고 Google Fonts에서 불러 씁니다.
+
+---------------------------------------------------------------------
+2. three.js 0.187.0 (3D 화면 그리기)
+---------------------------------------------------------------------
+https://threejs.org
+
+The MIT License
+
+Copyright © 2010-2026 three.js authors
+
+---------------------------------------------------------------------
+3. Socket.IO 4.8.4 (기기끼리 실시간 연결)
+---------------------------------------------------------------------
+https://socket.io
+
+(The MIT License)
+
+Copyright (c) 2014-present Guillermo Rauch and Socket.IO contributors
+
+---------------------------------------------------------------------
+4. Express 4.22.3 (웹 서버)
+---------------------------------------------------------------------
+https://expressjs.com
+
+(The MIT License)
+
+Copyright (c) 2009-2014 TJ Holowaychuk <tj@vision-media.ca>
+Copyright (c) 2013-2014 Roman Shtylman <shtylman+expressjs@gmail.com>
+Copyright (c) 2014-2015 Douglas Christopher Wilson <doug@somethingdoug.com>
+
+---------------------------------------------------------------------
+MIT License 전문 (2~4번에 공통)
+---------------------------------------------------------------------
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

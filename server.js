@@ -14,6 +14,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
 app.use('/vendor/three', express.static(path.join(__dirname, 'node_modules/three/build')));
 app.get('/health', (_req, res) => res.send('ok'));   // 수업 전 서버 깨우기용
+// 출처 페이지(credits.html)에서 여는 라이선스 전문
+app.get('/THIRD-PARTY-NOTICES.txt', (_req, res) => res.type('text/plain; charset=utf-8').sendFile(path.join(__dirname, 'THIRD-PARTY-NOTICES.txt')));
 
 const server = http.createServer(app);
 // 응답 기다리는 시간을 넉넉히: 무거운 3D 화면·학교 와이파이에서 잠깐 늦어도 끊지 않음

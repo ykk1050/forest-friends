@@ -46,6 +46,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .mid.go { background: var(--accent); box-shadow: 0 6px 0 #c2601f; }
 .small { margin-top: 14px; font-size: 16px; padding: 8px 16px; border-radius: 12px; border: 2px solid var(--line); background: #fff; color: #8a7a66; }
 .err { color: #e53935; font-weight: 800; min-height: 1.4em; }
+/* 맨 아래 작은 출처 링크 (참가 화면·설정·선생님 화면) */
+.credits-link { display: block; margin: 10px auto 0; width: fit-content; font-size: 13px; color: #8a7a66; text-decoration: underline; text-underline-offset: 3px; }
 
 /* 동물 고르기 */
 .animal-pick { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
